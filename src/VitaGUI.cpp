@@ -1125,6 +1125,8 @@ void VitaGUI::DrawLoginScreen(){
 	
 		vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(114, 137, 217, 255));
 		vita2d_draw_texture( loginFormImage , 161, 53 );
+		// Cover the EMAIL and PASSWORD areas with the background color
+		vita2d_draw_rectangle( 430, 110, 380, 200, RGBA8(54, 57, 63, 255) );
 		vita2d_font_draw_text(vita2dFont[18] , 438, 130, RGBA8(130, 134, 142, 255), 18, "TOKEN");
 		vita2d_font_draw_text(vita2dFont[18] , 438, 181, RGBA8(255,255,255,255), 18, loginTexts[0].c_str());
 		vita2d_draw_rectangle( 438, 190, 360, 2, RGBA8(130, 134, 142, 255) );

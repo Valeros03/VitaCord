@@ -984,7 +984,7 @@ void * Discord::thread_loadData(void *arg){
 											newRole.id = j_roles[r]["id"].get<std::string>();
 
 											newRole.color = 0;
-											if (j_roles[r].contains("color") && !j_roles[r]["color"].is_null()) {
+											if (j_roles[r].count("color") > 0 && !j_roles[r]["color"].is_null()) {
 												newRole.color = j_roles[r]["color"].get<unsigned int>();
 											}
 

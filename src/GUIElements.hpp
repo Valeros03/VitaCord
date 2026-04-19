@@ -56,7 +56,6 @@ typedef struct{
 	std::string content;
 	std::string channelID;
 	std::string messageID;
-	std::unordered_map<std::string, std::string> mentionsMap;
 	bool showAttachmentAsImage;
 	bool showAttachmentAsBinary;
 	std::string attachmentFilename;

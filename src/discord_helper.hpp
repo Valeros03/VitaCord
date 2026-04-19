@@ -67,14 +67,11 @@ struct messageauthor{
 
 };
 
-#include <unordered_map>
-
 struct message{
 	std::string timestamp;
 	std::string id;
 	struct messageauthor author;
 	std::string content;
-	std::unordered_map<std::string, std::string> mentionsMap;
 };
 
 struct channel{

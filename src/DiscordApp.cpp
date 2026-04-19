@@ -126,41 +126,25 @@ void DiscordApp::loadUserDataFromFile ( ) {
 			
 		}
 		
-		email = simpleDecrypt(email);
-		password = simpleDecrypt(password);
 		token = simpleDecrypt(token);
 		
-		saveUserDataToFile(email , password , token);
+		saveUserDataToFile(token);
 		
 	}
 	
 	
-	discord.setEmail(email);
-	discord.setPassword(password);
 	discord.setToken(token);
 	
-	vitaGUI.loginTexts[0] = discord.getEmail();
+	vitaGUI.loginTexts[0] = discord.getToken();
 	vitaGUI.loginTexts[1] = "";
-	for( i = 0 ; i < password.length() ; i++){
-		vitaGUI.loginTexts[1] += "*";
-	}
 }
 
-void DiscordApp::saveUserDataToFile(std::string mail , std::string pass , std::string _tok){
+void DiscordApp::saveUserDataToFile(std::string _tok){
 	
 	
-	mail = xorEncrypt(mail);
-	pass = xorEncrypt(pass);
 	_tok = xorEncrypt(_tok);
 	
-	//std::string userdata = mail + "\n" + pass + "\n" + _tok + "\n";
-	int fh = sceIoOpen("ux0:data/vitacord/user/loc.ecr", SCE_O_WRONLY | SCE_O_CREAT, 0777);
-	sceIoWrite(fh, mail.c_str(), strlen(mail.c_str()));
-	sceIoClose(fh);
-	fh = sceIoOpen("ux0:data/vitacord/user/set.ecr", SCE_O_WRONLY | SCE_O_CREAT, 0777);
-	sceIoWrite(fh, pass.c_str(), strlen(pass.c_str()));
-	sceIoClose(fh);
-	fh = sceIoOpen("ux0:data/vitacord/user/cr.ecr", SCE_O_WRONLY | SCE_O_CREAT, 0777);
+	int fh = sceIoOpen("ux0:data/vitacord/user/cr.ecr", SCE_O_WRONLY | SCE_O_CREAT, 0777);
 	sceIoWrite(fh, _tok.c_str(), strlen(_tok.c_str()));
 	sceIoClose(fh);
 	
@@ -226,15 +210,14 @@ void DiscordApp::Start(){
 		if(vitaState == 0){
 			switch(clicked){
 				case 0:
-					getUserEmailInput();
+					getUserTokenInput();
 					break;
 					
 				case 1:
-					getUserPasswordInput();
+					doLogin();
 					break;
 					
 				case 2:
-					doLogin();
 					break;
 			}
 		}else if(vitaState == 1){
@@ -370,47 +353,13 @@ void DiscordApp::doLogin(){
 	if(loginR  == 200){
 		logSD("Login Success");
 		vitaGUI.loadingString = "Loading your stuff , " + discord.getUsername();
-		saveUserDataToFile(discord.getEmail() , discord.getPassword() , discord.getToken());
+		saveUserDataToFile(discord.getToken());
 		discord.loadData();
 		logSD("Loaded data");
 		vitaGUI.SetState(1);
-	}else if(loginR == 200000){
-		int login2faResponse = discord.submit2facode(vitaIME.getUserText(get2facodeTitle));
-		if( login2faResponse == 200){
-			logSD("Login (2FA) Success");
-			vitaGUI.loadingString = "Wait a second " + discord.getUsername();
-			saveUserDataToFile(discord.getEmail() , discord.getPassword() , discord.getToken());
-			discord.loadData();
-			logSD("Loaded data");
-			vitaGUI.SetState(1);
-			logSD("Set state");
-		}else if(login2faResponse == -15){
-			vitaGUI.loginTexts[2] = "2FA code too short! ";
-		}else if(login2faResponse == -120){
-			vitaGUI.loginTexts[2] = "D> JSON parse error! ";
-		}else if(login2faResponse == -125){
-			vitaGUI.loginTexts[2] = "D> JSON response was empty! ";
-		}else if(login2faResponse == -126){
-			vitaGUI.loginTexts[2] = "D> 2FA token was empty! ";
-		}else{
-			vitaGUI.loginTexts[2] = "Error Code " + std::to_string(login2faResponse);;
-			std::string errorStr = "Unknown error 2fa = " + std::to_string(login2faResponse);
-			criticalLogSD(errorStr.c_str());
-		}
 	}else if(loginR == -11){
-		vitaGUI.loginTexts[2] = "Email too short!";
-	}else if(loginR == -12){
-		vitaGUI.loginTexts[2] = "Password too short!";
-	}else if(loginR == -120){
-		vitaGUI.loginTexts[2] = "D> JSON parse error! ";
-	}else if(loginR == -125){
-		vitaGUI.loginTexts[2] = "D> JSON response was empty! ";
-	}else if(loginR == -127){
-		vitaGUI.loginTexts[2] = "D> No token or mfa in JSON.";
-	}else if(loginR == -129){
-		vitaGUI.loginTexts[2] = "D> MFA ticket was empty !";
-	}
-	else{
+		vitaGUI.loginTexts[2] = "Token too short!";
+	}else{
 		vitaGUI.loginTexts[2] = "Error Code " + std::to_string(loginR);
 		std::string errorStr = "Unknown error = " + std::to_string(loginR);
 		criticalLogSD(errorStr.c_str());
@@ -426,25 +375,12 @@ void DiscordApp::doLogin(){
 
 
 
-void DiscordApp::getUserEmailInput(){
+void DiscordApp::getUserTokenInput(){
 	vitaGUI.loginTexts[2] = "";
 	
-	std::string newemail = vitaIME.getUserText(emailTitle , (char *)discord.getEmail().c_str() );
-	discord.setEmail(newemail);
-	vitaGUI.loginTexts[0] = newemail;
-	sceKernelDelayThread(SLEEP_CLICK_NORMAL);
-}
-
-void DiscordApp::getUserPasswordInput(){
-	vitaGUI.loginTexts[2] = "";
-	
-	std::string newpassword = vitaIME.getUserText(passwordTitle );
-	discord.setPassword(newpassword);
-	vitaGUI.loginTexts[1] = "";
-	for(unsigned int i = 0 ; i < newpassword.length() ; i++){
-		vitaGUI.loginTexts[1] += "*";
-	}
-	
+	std::string newtoken = vitaIME.getUserText(tokenTitle , (char *)discord.getToken().c_str() );
+	discord.setToken(newtoken);
+	vitaGUI.loginTexts[0] = newtoken;
 	sceKernelDelayThread(SLEEP_CLICK_NORMAL);
 }
 

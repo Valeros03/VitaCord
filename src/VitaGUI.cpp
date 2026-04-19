@@ -202,17 +202,6 @@ void VitaGUI::Draw(){
 		
 		DrawLoginScreen();
 		
-		for(unsigned int drawEmojiTest = 0; drawEmojiTest <  discordPtr->emojiTestArray.size() ; drawEmojiTest++){
-			
-			vita2d_draw_texture_part(discordPtr->spritesheetEmoji 
-				, emojiTestScrollX + discordPtr->emojiMap[discordPtr->emojiTestArray[drawEmojiTest]].x * discordPtr->emojiWidth
-				, emojiTestScrollY + discordPtr->emojiMap[discordPtr->emojiTestArray[drawEmojiTest]].y * discordPtr->emojiHeight
-				, discordPtr->emojiMap[discordPtr->emojiTestArray[drawEmojiTest]].x * discordPtr->emojiWidth
-				, discordPtr->emojiMap[discordPtr->emojiTestArray[drawEmojiTest]].y * discordPtr->emojiHeight
-				, discordPtr->emojiWidth
-				, discordPtr->emojiHeight );
-		}
-		
 		/*if(texA != NULL){
 			vita2d_draw_texture( texA , 0 , 72);
 		}
@@ -590,8 +579,7 @@ int VitaGUI::analogScrollLeft(int x , int y){
 	
 	
 	if(state==0){
-		emojiTestScrollX += x;
-		emojiTestScrollY -= y;
+		// No scrollable components in login anymore
 	}else if(state == 1){
 		loadingAnimX += x;
 		loadingAnimY -= y;
@@ -649,7 +637,6 @@ int VitaGUI::analogScrollLeft(int x , int y){
 
 int VitaGUI::click(int x , int y){
 	if(state == 0){
-		currentEmojiIndexTest+=13;
 		for(unsigned int i = 0 ; i < loginInputs.size() ; i++){
 			if( x > loginInputs[i].x && x < loginInputs[i].x + loginInputs[i].w){
 				if( y > loginInputs[i].y && y < loginInputs[i].y + loginInputs[i].h){
@@ -1138,7 +1125,9 @@ void VitaGUI::DrawLoginScreen(){
 	
 		vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(114, 137, 217, 255));
 		vita2d_draw_texture( loginFormImage , 161, 53 );
+		vita2d_font_draw_text(vita2dFont[18] , 438, 130, RGBA8(130, 134, 142, 255), 18, "TOKEN");
 		vita2d_font_draw_text(vita2dFont[18] , 438, 181, RGBA8(255,255,255,255), 18, loginTexts[0].c_str());
+		vita2d_draw_rectangle( 438, 190, 360, 2, RGBA8(130, 134, 142, 255) );
 		vita2d_font_draw_text(vita2dFont[18] , 750, 261, RGBA8(255,0,0,255), 18, loginTexts[2].c_str());
 	
 }

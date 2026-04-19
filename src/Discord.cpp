@@ -377,9 +377,9 @@ bool Discord::sendMessage(std::string msg){
 
 bool Discord::editMessage(std::string channelID , std::string messageID , std::string newContent){
 	std::string editMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
-	std::string processedMsg = replaceEmojiShortcodes(newContent);
-	std::string patchData = "{ \"content\":\"" + processedMsg + "\" }";
-	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , token);
+	std::string patchData = "{ \"content\":\"" + newContent + "\" }";
+	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , TOKEN);
+
 	if(editmessageresponse.httpcode == 200){
 
 
@@ -640,11 +640,32 @@ void Discord::getChannelMessages(int channelIndex){
 						newMessage.author.avatar = "0";
 					}
 
+					newMessage.author.color = 0;
+					if(!j_complete[iR]["member"].is_null() && !j_complete[iR]["member"]["roles"].is_null()){
+						int highest_pos = -1;
+						int rolesAmount = j_complete[iR]["member"]["roles"].size();
+						for(int r = 0; r < rolesAmount; r++){
+							std::string r_id = j_complete[iR]["member"]["roles"][r].get<std::string>();
+							for(const auto& gr : guilds[currentGuild].roles){
+								if(gr.id == r_id && gr.color != 0){
+									if(gr.position > highest_pos){
+										highest_pos = gr.position;
+										unsigned int rawColor = gr.color;
+										unsigned char rc = (rawColor >> 16) & 0xFF;
+										unsigned char gc = (rawColor >> 8) & 0xFF;
+										unsigned char bc = rawColor & 0xFF;
+										newMessage.author.color = RGBA8(rc, gc, bc, 255);
+									}
+								}
+							}
+						}
+					}
+
 					newMessage.attachment.isEmpty = true;
 					
-					bool attachmentDownloadEnabled = false;
+					bool attachmentDownloadEnabled = false; // Always false for now
 					
-					if(!j_complete[iR]["attachments"].is_null() && attachmentDownloadEnabled){
+					if(!j_complete[iR]["attachments"].is_null()){
 						if(!j_complete[iR]["attachments"][0].is_null()){
 
 							newMessage.attachment.isEmpty = false;
@@ -722,170 +743,16 @@ void Discord::getChannelMessages(int channelIndex){
 							if ( proxyAvailable && filenameAvailable && imageDimensionAvailable ){
 								newMessage.attachment.isImage = true ;
 								newMessage.attachment.isData = false ;
-								int thumbW = 64;//static_cast<int>( 64 * ( newMessage.attachment.width / newMessage.attachment.height ) );
-								int thumbH = 64;
-								std::string thumbUrl = newMessage.attachment.proxy_url + "?width=" + std::to_string(thumbW) + "&height=" +std::to_string( thumbH );
-								debugNetPrintf( DEBUG , "Loading thumbnail : " );
-								debugNetPrintf( DEBUG , thumbUrl.c_str() );
-								std::string imageThumbFileName = "ux0:data/vitacord/attachments/thumbnails/" + newMessage.attachment.filename;
-								VitaNet::http_response thumbnailResponse = vitaNet.curlDiscordDownloadImage( thumbUrl , token , imageThumbFileName );
-								if( thumbnailResponse.httpcode == 200){
-
-
-									// check which format ! ( magic numbers check ) a little big , should make a function for it # TODO
-
-									int imageThumbFD = sceIoOpen( imageThumbFileName.c_str() , SCE_O_RDONLY , 0777 );
-									int MAGIC_BUFFER_SIZE = 50;
-									char magicNumberBuffer [MAGIC_BUFFER_SIZE];
-									sceIoRead(imageThumbFD , magicNumberBuffer , MAGIC_BUFFER_SIZE);
-									sceIoClose(imageThumbFD);
-
-									// START OF MAGIC NUMBER CHECKER !
-									// BMP first :)
-									if( magicNumberBuffer[0] == (char)0x42 ){
-										if( magicNumberBuffer[1] == 0x4D ){
-											newMessage.attachment.thumbnail = vita2d_load_BMP_file( imageThumbFileName.c_str() );
-											if( newMessage.attachment.thumbnail != NULL){
-												debugNetPrintf( DEBUG , "Could load bmp!");
-												newMessage.attachment.loadedThumbImage = true;
-											}
-										}
-									} // now PNG :
-									else if ( magicNumberBuffer[0] == (char)0x89 ){
-										if ( magicNumberBuffer[1] == 0x50 ){
-											if ( magicNumberBuffer[2] == 0x4E ){
-												if ( magicNumberBuffer[3] == 0x47 ){
-													if ( magicNumberBuffer[4] == 0x0D ){
-														if ( magicNumberBuffer[5] == 0x0A ){
-															if ( magicNumberBuffer[6] == 0x1A ){
-																if ( magicNumberBuffer[7] == 0x0A ){
-																	newMessage.attachment.thumbnail = vita2d_load_PNG_file( imageThumbFileName.c_str() );
-																	if( newMessage.attachment.thumbnail != NULL){
-																		debugNetPrintf( DEBUG , "Could load png!");
-																		newMessage.attachment.loadedThumbImage = true;
-																	}
-																}
-															}
-														}
-													}
-												}
-											}
-										}
-									} // now 3 different JPG magic numbers  [ raw | Exif | JFIF ]
-									else if( magicNumberBuffer[0] == (char)0xFF ){
-										if( magicNumberBuffer[1] == 0xD8 ){
-											if( magicNumberBuffer[2] == 0xFF ){
-												if( magicNumberBuffer[3] == 0xD8 ){
-													// ÿØÿÛ
-													newMessage.attachment.thumbnail = vita2d_load_JPEG_file( imageThumbFileName.c_str() );
-													if( newMessage.attachment.thumbnail != NULL){
-														debugNetPrintf( DEBUG , "Could load jpg [ raw ] !");
-														newMessage.attachment.loadedThumbImage = true;
-													}
-
-												}
-												else if( magicNumberBuffer[3] == (char)0xE0 ){
-													if( magicNumberBuffer[6] == 0x4A ){
-														if( magicNumberBuffer[7] == 0x46 ){
-															if( magicNumberBuffer[8] == 0x49 ){
-																if( magicNumberBuffer[9] == 0x46 ){
-																	if( magicNumberBuffer[10] == 0x00 ){
-																		if( magicNumberBuffer[11] == 0x01 ){
-																			//ÿØÿà ..JFIF..
-																			newMessage.attachment.thumbnail = vita2d_load_JPEG_file( imageThumbFileName.c_str() );
-																			if( newMessage.attachment.thumbnail != NULL){
-																				debugNetPrintf( DEBUG , "Could load jpg [ JFIF ] !");
-																				newMessage.attachment.loadedThumbImage = true;
-																			}
-																		}
-																	}
-																}
-															}
-														}
-													}
-
-
-												}else if( magicNumberBuffer[3] == (char)0xE1 ){
-													if( magicNumberBuffer[6] == 0x45 ){
-														if( magicNumberBuffer[7] == 0x78 ){
-															if( magicNumberBuffer[8] == 0x69 ){
-																if( magicNumberBuffer[9] == 0x66 ){
-																	if( magicNumberBuffer[10] == 0x00 ){
-																		if( magicNumberBuffer[11] == 0x00 ){
-																			//ÿØÿá ..Exif..
-																			newMessage.attachment.thumbnail = vita2d_load_JPEG_file( imageThumbFileName.c_str() );
-																			if( newMessage.attachment.thumbnail != NULL){
-																				debugNetPrintf( DEBUG , "Could load jpg [ Exif ] !");
-																				newMessage.attachment.loadedThumbImage = true;
-																			}
-																		}
-																	}
-																}
-															}
-														}
-													}
-
-
-												}
-
-											}
-
-										}
-
-
-									}else{
-										newMessage.attachment.loadedThumbImage = false;
-										newMessage.attachment.isImage = false ;
-										newMessage.attachment.isData = false ;
-										if ( urlAvailable && filenameAvailable && sizeAvailable ){
-											goto loaddata; //
-										}
-										debugNetPrintf(DEBUG , "Loading thumbnail error : No matching magic numbers ! Tested :[bmp | png | jpg] !");
-									}
-									// END OF MAGIC NUMBER CHECKER !
-
-
-									debugNetPrintf(DEBUG , "LOADED THUMBNAIL!");
-
-
-
-
-
-								}else{
-									newMessage.attachment.isEmpty = true ;
-									newMessage.attachment.isImage = false ;
-									newMessage.attachment.isData = false ;
-									debugNetPrintf(DEBUG , "FAiled loading THUMBNAIL!");
-								}
+								// Disable downloading thumb data
+								newMessage.attachment.loadedThumbImage = true; // Use text placeholder instead
+								newMessage.attachment.isImage = true;
+								newMessage.attachment.isData = false;
 							}else if ( urlAvailable && filenameAvailable && sizeAvailable ){
 
 								loaddata:		// Label for goto
-								if ( newMessage.attachment.size < 1024*1024 ){
-									newMessage.attachment.isImage = false ;
-									newMessage.attachment.isData = true ;
-									// if less than 1 mb download :
-									std::string fileUrl = newMessage.attachment.url;
-									debugNetPrintf( DEBUG , "Loading attachment : " );
-									debugNetPrintf( DEBUG , fileUrl.c_str() );
-									std::string fileName = "ux0:data/vitacord/attachments/other/" + newMessage.attachment.filename;
-									VitaNet::http_response fileGetResponse = vitaNet.curlDiscordDownloadImage( fileUrl , token , fileName);
-									if( fileGetResponse.httpcode == 200){
-
-
-										debugNetPrintf(DEBUG , "LOADED ATTACHED FILE!");
-
-
-
-									}else{
-										newMessage.attachment.isEmpty = true ;
-										newMessage.attachment.isImage = false ;
-										newMessage.attachment.isData = false ;
-										debugNetPrintf(DEBUG , "FAiled loading ATTACHED FILE!");
-									}
-
-
-
-								}
+								// Disable downloading file data
+								newMessage.attachment.isImage = false ;
+								newMessage.attachment.isData = true ;
 							}else{
 								newMessage.attachment.isEmpty = true ;
 								newMessage.attachment.isImage = false ;
@@ -955,7 +822,7 @@ void Discord::LeaveChannel(){
 	currentChannel = 0;
 }
 void Discord::setToken(std::string tok){
-	token = tok;
+	TOKEN = tok;
 }
 
 
@@ -1091,6 +958,24 @@ void * Discord::thread_loadData(void *arg){
 							discordPtr->guilds[i].channels.clear();
 							int channelsAmount = j_complete.size();
 							
+							std::string rolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/roles";
+							VitaNet::http_response rolesResponse = discordPtr->vitaNet.curlDiscordGet(rolesUrl , TOKEN);
+							if(rolesResponse.httpcode == 200){
+								try{
+									nlohmann::json j_roles = nlohmann::json::parse(rolesResponse.body);
+									if(!j_roles.is_null()){
+										int rAmount = j_roles.size();
+										for(int r = 0; r < rAmount; r++){
+											role newRole;
+											newRole.id = j_roles[r]["id"].get<std::string>();
+											newRole.color = j_roles[r]["color"].get<unsigned int>();
+											newRole.position = j_roles[r]["position"].get<int>();
+											discordPtr->guilds[i].roles.push_back(newRole);
+										}
+									}
+								}catch(...){}
+							}
+
 							logSD("Channel amount " + std::to_string(channelsAmount));
 							
 							for(int c = 0; c < channelsAmount; c++){
@@ -1643,13 +1528,13 @@ std::string Discord::getUsername(){
 	return username;
 }
 long Discord::login(){
-	return login(token);
+	return login(TOKEN);
 }
 long Discord::login(std::string tok){
 	criticalLogSD("Login attempt.\n");
-	token = tok;
+	TOKEN = tok;
 
-	if(token.length() < 1){
+	if(TOKEN.length() < 1){
 		criticalLogSD("Token too short! \n");
 		return -11;
 	}
@@ -1661,7 +1546,7 @@ long Discord::login(std::string tok){
 	return fetchStatus;
 }
 std::string Discord::getToken(){
-	return token;
+	return TOKEN;
 }
 std::string Discord::getTicket(){
 	return ticket;

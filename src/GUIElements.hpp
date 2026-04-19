@@ -23,7 +23,7 @@ typedef struct{
 
 typedef struct{
 	std::string name;
-	
+
 }image;
 
 
@@ -32,7 +32,7 @@ typedef struct{
 	int y;
 	int w;
 	int h;
-	
+
 }inputbox;
 
 
@@ -41,7 +41,7 @@ typedef struct{
 	int y;
 	int w;
 	int h;
-	
+
 }box;
 
 typedef struct{
@@ -52,6 +52,7 @@ typedef struct{
 	int lineCount;
 	int messageHeight;
 	std::string username;
+	unsigned int userColor = 0;
 	std::string content;
 	std::string channelID;
 	std::string messageID;
@@ -62,7 +63,7 @@ typedef struct{
 	int attachmentReadableSize;
 	std::string attachmentReadableSizeUnit;
 	std::string attachmentFullText;
-	
+
 	std::vector<m_emoji> emojis;
 }messagebox;
 
@@ -96,4 +97,3 @@ typedef struct{
 
 
 #endif
-

@@ -307,9 +307,8 @@ void VitaGUI::Draw(){
 		// BOTTOM SIDEPANEL
 		vita2d_draw_rectangle(0, 479, 230, 1, RGBA8(5, 5, 6, 255));
 		vita2d_draw_rectangle(0, 480, 230, 64, RGBA8(40, 43, 48, 255));
-		vita2d_draw_texture(sidepanelStateIconImage, 14, 493); // sidepanelStateIconImage = user icon or Vitacord-default-usericon.png
-		vita2d_font_draw_text(vita2dFont[18], 70, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
-		vita2d_font_draw_text(vita2dFont[15], 70, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
+		vita2d_font_draw_text(vita2dFont[18], 14, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
+		vita2d_font_draw_text(vita2dFont[15], 14, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
 		
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
 		
@@ -339,9 +338,8 @@ void VitaGUI::Draw(){
 		// BOTTOM SIDEPANEL
 		vita2d_draw_rectangle(0, 479, 230, 1, RGBA8(5, 5, 6, 255));
 		vita2d_draw_rectangle(0, 480, 230, 64, RGBA8(40, 43, 48, 255));
-		vita2d_draw_texture(sidepanelStateIconImage, 14, 493); // sidepanelStateIconImage = user icon or Vitacord-default-usericon.png
-		vita2d_font_draw_text(vita2dFont[18], 70, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
-		vita2d_font_draw_text(vita2dFont[15], 70, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
+		vita2d_font_draw_text(vita2dFont[18], 14, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
+		vita2d_font_draw_text(vita2dFont[15], 14, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
 		
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON  
 		
@@ -388,9 +386,8 @@ void VitaGUI::Draw(){
 		// BOTTOM SIDEPANEL
 		vita2d_draw_rectangle(0, 479, 230, 1, RGBA8(5, 5, 6, 255));
 		vita2d_draw_rectangle(0, 480, 230, 64, RGBA8(40, 43, 48, 255));
-		vita2d_draw_texture(sidepanelStateIconImage, 14, 493); // sidepanelStateIconImage = user icon or Vitacord-default-usericon.png
-		vita2d_font_draw_text(vita2dFont[18], 70, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
-		vita2d_font_draw_text(vita2dFont[15], 70, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
+		vita2d_font_draw_text(vita2dFont[18], 14, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
+		vita2d_font_draw_text(vita2dFont[15], 14, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
 		
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
 		
@@ -426,9 +423,8 @@ void VitaGUI::Draw(){
 		// BOTTOM SIDEPANEL
 		vita2d_draw_rectangle(0, 479, 230, 1, RGBA8(5, 5, 6, 255));
 		vita2d_draw_rectangle(0, 480, 230, 64, RGBA8(40, 43, 48, 255));
-		vita2d_draw_texture(sidepanelStateIconImage, 14, 493); // sidepanelStateIconImage = user icon or Vitacord-default-usericon.png
-		vita2d_font_draw_text(vita2dFont[18], 70, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
-		vita2d_font_draw_text(vita2dFont[15], 70, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
+		vita2d_font_draw_text(vita2dFont[18], 14, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
+		vita2d_font_draw_text(vita2dFont[15], 14, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
 		
 		vita2d_draw_rectangle(146, 30, 84, 69, RGBA8(66, 70, 77, 225));
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
@@ -458,9 +454,8 @@ void VitaGUI::Draw(){
 		// BOTTOM SIDEPANEL
 		vita2d_draw_rectangle(0, 479, 230, 1, RGBA8(5, 5, 6, 255));
 		vita2d_draw_rectangle(0, 480, 230, 64, RGBA8(40, 43, 48, 255));
-		vita2d_draw_texture(sidepanelStateIconImage, 14, 493); // sidepanelStateIconImage = user icon or Vitacord-default-usericon.png
-		vita2d_font_draw_text(vita2dFont[18], 70, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
-		vita2d_font_draw_text(vita2dFont[15], 70, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
+		vita2d_font_draw_text(vita2dFont[18], 14, 514, RGBA8(255, 255, 255, 255), 18, panelUsername.c_str());
+		vita2d_font_draw_text(vita2dFont[15], 14, 530, RGBA8(255, 255, 255, 255), 15, panelUserDiscriminator.c_str()); // create a vita2dfont for each font-size or your font will get messed up.
 		
 		vita2d_draw_rectangle(146, 30, 84, 69, RGBA8(66, 70, 77, 225));
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
@@ -965,6 +960,7 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.x = messageScrollX + 230;
 			boxC.y = 40  + allHeight ; // 40 = statusbar height
 			boxC.username = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.username;
+			boxC.userColor = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.color;
 			boxC.content = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content;
 			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
 			// wrapping in discord.cpp bcz of emoji :
@@ -993,7 +989,7 @@ bool VitaGUI::setMessageBoxes(){
 					boxC.attachmentFullText = std::to_string(  boxC.attachmentReadableSize ) + " " +  boxC.attachmentReadableSizeUnit + " " + boxC.attachmentFilename;
 					
 					// adjust box height !
-					boxC.messageHeight += ATTACHMENT_HEIGHT + 16; // 16 = margin
+					boxC.messageHeight += 30; // 16 = margin
 				}else if ( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.isImage ){
 					if( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.loadedThumbImage ){
 						boxC.showAttachmentAsImage = true;
@@ -1005,7 +1001,7 @@ bool VitaGUI::setMessageBoxes(){
 						boxC.attachmentFullText = std::to_string(  boxC.attachmentReadableSize ) + " " +  boxC.attachmentReadableSizeUnit + " " + boxC.attachmentFilename;
 					
 						// adjust box height !
-						boxC.messageHeight += ATTACHMENT_HEIGHT + 16;
+						boxC.messageHeight += 30;
 					}
 				}else{
 					boxC.showAttachmentAsImage = false;
@@ -1096,6 +1092,7 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.x = directMessageMessagesScrollX + 230;
 			boxC.y = directMessageMessagesScrollY + allHeight;
 			boxC.username = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.username;
+			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
 			boxC.lineCount = wordWrap( discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content , 30 , boxC.content);
 			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
@@ -1222,38 +1219,20 @@ void VitaGUI::DrawMessages(){
 				
 			}
 			
+
 				vita2d_font_draw_text(vita2dFont[26], 283, yPos + 26, RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
 				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 50, 32);
 				 
 			if( messageBoxes[i].showAttachmentAsImage ){
-				vita2d_draw_rectangle( 240 , yPos + height - ATTACHMENT_HEIGHT - 16 , ATTACHMENT_HEIGHT , ATTACHMENT_HEIGHT , RGBA8(0x9F , 0x9F , 0x9F , 0xFF) );
-				if( i < discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages.size() ){
-					if ( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.loadedThumbImage == true ){
-						if ( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.isEmpty == false ){
-							if ( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.thumbnail != NULL ){
-								vita2d_draw_texture( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.thumbnail , 240 , yPos + height - ATTACHMENT_HEIGHT - 16);
-							}
-						}
-					}
-				}
-				vita2d_font_draw_text(vita2dFont[24] ,  240 + ATTACHMENT_HEIGHT + 8 , yPos + height - 32 , RGBA8(255, 255, 255, 255), 24 , messageBoxes[i].attachmentFullText.c_str() );
+				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📷 Immagine ]");
 			}else if( messageBoxes[i].showAttachmentAsBinary ){
-				vita2d_draw_rectangle( 240 , yPos + height - ATTACHMENT_HEIGHT - 16 , ATTACHMENT_HEIGHT , ATTACHMENT_HEIGHT , RGBA8(0x9F , 0x9F , 0x9F , 0xFF) );
-				
-				if (  defaultBinaryThumbnail != NULL){
-					vita2d_draw_texture( defaultBinaryThumbnail , 240 , yPos + height - ATTACHMENT_HEIGHT - 16);
-				}
-				vita2d_font_draw_text(vita2dFont[24] ,  240 + ATTACHMENT_HEIGHT + 8 , yPos + height - 32 , RGBA8(255, 255, 255, 255), 24 , messageBoxes[i].attachmentFullText.c_str() );
+				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📎 Allegato ]");
 			}
-			
+
 			// DRAW EMOJIS:
 			// Old emoji draw code removed, now using inline DrawTextWithEmojis.
 				
-			// draw default icon.
-			// When user icons is implemented, add vita2d_texture pointer to user data.
-			// Then apply either the default icon pointer or loaded user icon pionter to this vita2d_texture pointer.
-			// For now we'll just draw the default icon for all users.
-			vita2d_draw_texture(userIconDefaultImage, 243, yPos + 16);
+			// Not drawing default icons anymore.
 		}
 
 		
@@ -1310,16 +1289,12 @@ void VitaGUI::DrawDirectMessageMessages(){
 				
 			}
 			
-				vita2d_font_draw_text(vita2dFont[15], 283, yPos + 26, RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].username.c_str());
+				vita2d_font_draw_text(vita2dFont[15], 243, yPos + 26, directMessageMessagesBoxes[i].userColor ? directMessageMessagesBoxes[i].userColor : RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].username.c_str());
 
 				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 50, 15);
 
 			
-			// draw default icon.
-			// When user icons is implemented, add vita2d_texture pointer to user data.
-			// Then apply either the default icon pointer or loaded user icon pionter to this vita2d_texture pointer.
-			// For now we'll just draw the default icon for all users.
-			vita2d_draw_texture(userIconDefaultImage, 243, yPos + 16);
+			// Not drawing default icons anymore.
 			}
 
 		

@@ -4,6 +4,7 @@
 #include <vita2d.h>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 typedef struct{
 	int posX;

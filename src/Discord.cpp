@@ -655,7 +655,7 @@ void Discord::getChannelMessages(int channelIndex){
 					}
 
 					newMessage.author.color = 0;
-					if(j_complete[iR].contains("member") && j_complete[iR]["member"].contains("roles") && !j_complete[iR]["member"]["roles"].is_null()){
+					if(j_complete[iR].count("member") > 0&& j_complete[iR]["member"].count("roles") > 0 && !j_complete[iR]["member"]["roles"].is_null()){
 						int highest_pos = -1;
 						int rolesAmount = j_complete[iR]["member"]["roles"].size();
 						for(int r = 0; r < rolesAmount; r++){
@@ -1450,7 +1450,7 @@ void Discord::getCurrentDirectMessages(){
 						directMessages[currentDirectMessage].messages[i].content = "";
 					}
 
-					if (j_complete[i].contains("mentions") && !j_complete[i]["mentions"].is_null()) {
+					if (j_complete[i].count("mentions") > 0 && !j_complete[i]["mentions"].is_null()) {
 						int mAmount = j_complete[i]["mentions"].size();
 						for (int m = 0; m < mAmount; m++) {
 							if (!j_complete[i]["mentions"][m]["id"].is_null() && !j_complete[i]["mentions"][m]["username"].is_null()) {

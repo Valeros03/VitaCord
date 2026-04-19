@@ -23,8 +23,9 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 	for (unsigned int x = 0; x < utf32str.size(); x++) {
 		uint32_t codepoint = utf32str[x];
 
-		if (discordPtr->fastEmojiMap.find(codepoint) != discordPtr->fastEmojiMap.end()) {
-			size_t index = discordPtr->fastEmojiMap[codepoint];
+		auto it = discordPtr->fastEmojiMap.find(codepoint);
+		if (it != discordPtr->fastEmojiMap.end()) {
+			size_t index = it->second;
 			Discord::EmojiData eData = discordPtr->emojiVector[index];
 
 			if (discordPtr->spritesheetEmoji != NULL) {
@@ -43,9 +44,7 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 				currentX += 16; // 16px as requested
 			}
 		} else {
-			std::vector<unsigned int> singleChar32;
-			singleChar32.push_back(codepoint);
-			std::string singleChar8 = converter.to_bytes(x);
+			std::string singleChar8 = converter.to_bytes(codepoint);
 
 			vita2d_font_draw_text(vita2dFont[size], currentX, startY, RGBA8(255, 255, 255, 255), size, singleChar8.c_str());
 			currentX += vita2d_font_text_width(vita2dFont[size], size, singleChar8.c_str());

@@ -973,7 +973,7 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.y = 40  + allHeight ; // 40 = statusbar height
 			boxC.username = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.username;
 			boxC.userColor = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.color;
-			boxC.content = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content;
+			boxC.content = std::regex_replace(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, std::regex("<@!?(\\d+)>"), "@User");
 			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
 			// wrapping in discord.cpp bcz of emoji :
 			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
@@ -1106,7 +1106,8 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.username = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.username;
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
-			boxC.lineCount = wordWrap( discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content , 30 , boxC.content);
+			std::string parsedContent = std::regex_replace(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content, std::regex("<@!?(\\d+)>"), "@User");
+			boxC.lineCount = wordWrap( parsedContent , 30 , boxC.content);
 			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
 			allHeight += boxC.messageHeight;
@@ -1234,8 +1235,7 @@ void VitaGUI::DrawMessages(){
 
 				vita2d_font_draw_text(vita2dFont[26], 283, yPos + 26, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
 
-				std::string displayContent = std::regex_replace(messageBoxes[i].content, std::regex("<@!?(\\d+)>"), "@User");
-				DrawTextWithEmojis(displayContent, 293, yPos + 60, 32);
+				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 60, 32, 650);
 				 
 			if( messageBoxes[i].showAttachmentAsImage ){
 				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📷 Immagine ]");
@@ -1305,8 +1305,7 @@ void VitaGUI::DrawDirectMessageMessages(){
 			
 				vita2d_font_draw_text(vita2dFont[15], 243, yPos + 26, directMessageMessagesBoxes[i].userColor ? directMessageMessagesBoxes[i].userColor : RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].username.c_str());
 
-				std::string displayContent = std::regex_replace(directMessageMessagesBoxes[i].content, std::regex("<@!?(\\d+)>"), "@User");
-				DrawTextWithEmojis(displayContent, 293, yPos + 60, 15);
+				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 60, 15, 650);
 
 			
 			// Not drawing default icons anymore.

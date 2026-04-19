@@ -770,7 +770,11 @@ void * Discord::thread_loadData(void *arg){
 								}
 
 								if(!j_complete[i]["permissions"].is_null()){
-									discordPtr->guilds[i].permissions = j_complete[i]["permissions"].get<long>();
+									if (j_complete[i]["permissions"].is_string()) {
+										discordPtr->guilds[i].permissions = std::stoull(j_complete[i]["permissions"].get<std::string>());
+									} else {
+										discordPtr->guilds[i].permissions = j_complete[i]["permissions"].get<uint64_t>();
+									}
 								}else{
 									discordPtr->guilds[i].permissions = 0;
 								}

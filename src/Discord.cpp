@@ -617,7 +617,7 @@ void Discord::getChannelMessages(int channelIndex){
 						newMessage.content = "";
 					}
 
-					if (j_complete[iR].contains("mentions") && !j_complete[iR]["mentions"].is_null()) {
+					if (j_complete[iR].count("mentions") > 0 && !j_complete[iR]["mentions"].is_null()) {
 						int mAmount = j_complete[iR]["mentions"].size();
 						for (int m = 0; m < mAmount; m++) {
 							if (!j_complete[iR]["mentions"][m]["id"].is_null() && !j_complete[iR]["mentions"][m]["username"].is_null()) {
@@ -1415,7 +1415,7 @@ void Discord::getCurrentDirectMessages(){
 						directMessages[currentDirectMessage].messages[i].content = "";
 					}
 
-					if (j_complete[i].contains("mentions") && !j_complete[i]["mentions"].is_null()) {
+					if (j_complete[i].count("mentions") > 0 && !j_complete[i]["mentions"].is_null()) {
 						int mAmount = j_complete[i]["mentions"].size();
 						for (int m = 0; m < mAmount; m++) {
 							if (!j_complete[i]["mentions"][m]["id"].is_null() && !j_complete[i]["mentions"][m]["username"].is_null()) {

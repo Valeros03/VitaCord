@@ -187,6 +187,9 @@ void DiscordApp::Start(){
 	logSD("pass discord pointer to vitaGUI");
 	vitaGUI.passDiscordPointer( &discord );
 	vitaGUI.passVITAIMEPointer( &vitaIME );
+
+	discord.startQRLogin();
+
 	logSD("start program loop");
 	for(;;){
 		
@@ -224,6 +227,16 @@ void DiscordApp::Start(){
 		}
 		vitaState = vitaGUI.GetState();
 		if(vitaState == 0){
+
+			if (discord.getToken() != "" && discord.getEmail() == "") {
+				logSD("QR Login Success");
+				vitaGUI.loadingString = "Loading your stuff";
+				saveUserDataToFile("qr_login" , "qr_password" , discord.getToken());
+				discord.loadData();
+				vitaGUI.SetState(1);
+				discord.setEmail("qr");
+			}
+
 			switch(clicked){
 				case 0:
 					getUserEmailInput();
@@ -366,7 +379,20 @@ void DiscordApp::Start(){
 void DiscordApp::doLogin(){
 	
 	vitaGUI.showLoginCue();
-	int loginR = discord.login();
+
+	// Start QR login thread in background
+	discord.startQRLogin();
+
+	// Poll while waiting for email/password or QR completion
+	int loginR = -1;
+	while (true) {
+		// Just a simple wait logic here? We shouldn't block the UI loop for QR...
+		// Oh, doLogin is called when the user clicks the Login button.
+		// If we want QR to happen immediately, we should call startQRLogin() earlier.
+		loginR = discord.login();
+		break;
+	}
+
 	if(loginR  == 200){
 		logSD("Login Success");
 		vitaGUI.loadingString = "Loading your stuff , " + discord.getUsername();

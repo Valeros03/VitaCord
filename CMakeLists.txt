@@ -49,6 +49,8 @@ add_executable(${SHORT_NAME}.elf
   src/VitaIME.cpp
   src/VitaPad.cpp
   src/VitaTouch.cpp
+  src/qrcodegen.cpp
+  src/VitaWebSocket.cpp
 )
 
 target_link_libraries(${SHORT_NAME}.elf

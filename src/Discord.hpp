@@ -122,6 +122,10 @@ class Discord{
 		long login();
 		long login(std::string mail , std::string pass);
 		long submit2facode(std::string code);
+
+		void startQRLogin();
+		std::vector<std::vector<bool>> qrCodeMatrix;
+		bool qrLoginReady = false;
 		std::string getToken();
 		std::string getTicket();
 		std::string getUsername();

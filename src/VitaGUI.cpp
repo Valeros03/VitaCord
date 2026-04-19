@@ -1148,6 +1148,28 @@ void VitaGUI::DrawLoginScreen(){
 		vita2d_font_draw_text(vita2dFont[18] , 438, 181, RGBA8(255,255,255,255), 18, loginTexts[0].c_str());
 		vita2d_font_draw_text(vita2dFont[18] , 438, 261, RGBA8(255,255,255,255), 18, loginTexts[1].c_str());
 		vita2d_font_draw_text(vita2dFont[18] , 750, 261, RGBA8(255,0,0,255), 18, loginTexts[2].c_str());
+
+		if (discordPtr->qrLoginReady) {
+			int qrSize = discordPtr->qrCodeMatrix.size();
+			int moduleSize = 4; // Each module will be 4x4 pixels
+			int qrDrawSize = qrSize * moduleSize;
+
+			// Position on screen, e.g. center or side. Let's put it on right side.
+			int startX = 750;
+			int startY = 300;
+
+			// Draw white background for QR
+			vita2d_draw_rectangle(startX - 10, startY - 10, qrDrawSize + 20, qrDrawSize + 20, RGBA8(255, 255, 255, 255));
+
+			// Draw black modules
+			for (int y = 0; y < qrSize; y++) {
+				for (int x = 0; x < qrSize; x++) {
+					if (discordPtr->qrCodeMatrix[y][x]) {
+						vita2d_draw_rectangle(startX + x * moduleSize, startY + y * moduleSize, moduleSize, moduleSize, RGBA8(0, 0, 0, 255));
+					}
+				}
+			}
+		}
 	
 }
 

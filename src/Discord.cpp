@@ -1431,6 +1431,174 @@ void Discord::setEmail(std::string mail){
 void Discord::setPassword(std::string pass){
 	password = pass;
 }
+#include "qrcodegen.hpp"
+#include "VitaWebSocket.hpp"
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/sha.h>
+#include <openssl/evp.h>
+#include <pthread.h>
+#include <thread>
+#include <chrono>
+
+static std::string urlsafe_base64_encode(const unsigned char* in, size_t len) {
+    std::string out;
+    int val = 0, valb = -6;
+    for (size_t i = 0; i < len; i++) {
+        val = (val << 8) + in[i];
+        valb += 8;
+        while (valb >= 0) {
+            out.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"[(val >> valb) & 0x3F]);
+            valb -= 6;
+        }
+    }
+    if (valb > -6) out.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"[((val << 8) >> (valb + 8)) & 0x3F]);
+    return out;
+}
+
+static std::string base64_decode(const std::string& in) {
+    std::string out;
+    std::vector<int> T(256,-1);
+    for (int i=0; i<64; i++) T["ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[i]] = i;
+    int val=0, valb=-8;
+    for (unsigned char c : in) {
+        if (T[c] == -1) break;
+        val = (val<<6) + T[c];
+        valb += 6;
+        if (valb>=0) {
+            out.push_back(char((val>>valb)&0xFF));
+            valb-=8;
+        }
+    }
+    return out;
+}
+
+void Discord::startQRLogin() {
+    std::thread([this]() {
+        EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+        EVP_PKEY_keygen_init(ctx);
+        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048);
+        EVP_PKEY *pkey = NULL;
+        EVP_PKEY_keygen(ctx, &pkey);
+        EVP_PKEY_CTX_free(ctx);
+
+        BIO* bio = BIO_new(BIO_s_mem());
+        i2d_PUBKEY_bio(bio, pkey);
+        char* pubkey_data = nullptr;
+        long pubkey_len = BIO_get_mem_data(bio, &pubkey_data);
+
+        std::string pubkey_b64;
+        // Basic b64 encode of pubkey_data
+        int val=0, valb=-6;
+        for (long i=0; i<pubkey_len; i++) {
+            val = (val<<8) + (unsigned char)pubkey_data[i];
+            valb += 8;
+            while (valb>=0) {
+                pubkey_b64.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val>>valb)&0x3F]);
+                valb-=6;
+            }
+        }
+        if (valb>-6) pubkey_b64.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[((val<<8)>>(valb+8))&0x3F]);
+        while (pubkey_b64.size()%4) pubkey_b64.push_back('=');
+        BIO_free(bio);
+
+        VitaWebSocket ws;
+        if (!ws.connect("remote-auth-gateway.discord.gg", 443, "/?v=2")) {
+            return;
+        }
+
+        std::string msg;
+        if (!ws.recv(msg)) return; // hello
+
+        nlohmann::json init_msg;
+        init_msg["op"] = "init";
+        init_msg["encoded_public_key"] = pubkey_b64;
+        ws.send(init_msg.dump());
+
+        if (!ws.recv(msg)) return; // nonce_proof
+        nlohmann::json nonce_msg = nlohmann::json::parse(msg);
+
+        if (nonce_msg.value("op", "") == "nonce_proof") {
+            std::string enc_nonce = base64_decode(nonce_msg["encrypted_nonce"].get<std::string>());
+
+            EVP_PKEY_CTX *dec_ctx = EVP_PKEY_CTX_new(pkey, NULL);
+            EVP_PKEY_decrypt_init(dec_ctx);
+            EVP_PKEY_CTX_set_rsa_padding(dec_ctx, RSA_PKCS1_OAEP_PADDING);
+            EVP_PKEY_CTX_set_rsa_oaep_md(dec_ctx, EVP_sha256());
+            EVP_PKEY_CTX_set_rsa_mgf1_md(dec_ctx, EVP_sha256());
+
+            size_t outlen;
+            EVP_PKEY_decrypt(dec_ctx, NULL, &outlen, (const unsigned char*)enc_nonce.data(), enc_nonce.size());
+            unsigned char* nonce = new unsigned char[outlen];
+            EVP_PKEY_decrypt(dec_ctx, nonce, &outlen, (const unsigned char*)enc_nonce.data(), enc_nonce.size());
+
+            unsigned char hash[SHA256_DIGEST_LENGTH];
+            SHA256(nonce, outlen, hash);
+
+            std::string proof = urlsafe_base64_encode(hash, SHA256_DIGEST_LENGTH);
+
+            nlohmann::json proof_msg;
+            proof_msg["op"] = "nonce_proof";
+            proof_msg["proof"] = proof;
+            ws.send(proof_msg.dump());
+
+            delete[] nonce;
+            EVP_PKEY_CTX_free(dec_ctx);
+
+            if (!ws.recv(msg)) return; // pending_remote_init
+            nlohmann::json req_msg = nlohmann::json::parse(msg);
+
+            if (req_msg.value("op", "") == "pending_remote_init") {
+                std::string fp = req_msg["fingerprint"];
+                std::string qr_url = "https://discord.com/ra/" + fp;
+
+                auto qr = qrcodegen::QrCode::encodeText(qr_url.c_str(), qrcodegen::QrCode::Ecc::LOW);
+                std::vector<std::vector<bool>> mat(qr.getSize(), std::vector<bool>(qr.getSize(), false));
+                for (int y = 0; y < qr.getSize(); y++) {
+                    for (int x = 0; x < qr.getSize(); x++) {
+                        mat[y][x] = qr.getModule(x, y);
+                    }
+                }
+                this->qrCodeMatrix = mat;
+                this->qrLoginReady = true;
+
+                // Keep polling for token
+                while (ws.isConnected()) {
+                    std::string completion_msg;
+                    if (ws.recv(completion_msg)) {
+                        nlohmann::json j_comp = nlohmann::json::parse(completion_msg);
+                        if (j_comp.value("op", "") == "pending_finish") {
+                            // User scanned the QR code, wait for finish
+                        } else if (j_comp.value("op", "") == "finish") {
+                            std::string enc_token = base64_decode(j_comp["encrypted_token"].get<std::string>());
+
+                            EVP_PKEY_CTX *t_ctx = EVP_PKEY_CTX_new(pkey, NULL);
+                            EVP_PKEY_decrypt_init(t_ctx);
+                            EVP_PKEY_CTX_set_rsa_padding(t_ctx, RSA_PKCS1_OAEP_PADDING);
+                            EVP_PKEY_CTX_set_rsa_oaep_md(t_ctx, EVP_sha256());
+                            EVP_PKEY_CTX_set_rsa_mgf1_md(t_ctx, EVP_sha256());
+
+                            size_t t_outlen;
+                            EVP_PKEY_decrypt(t_ctx, NULL, &t_outlen, (const unsigned char*)enc_token.data(), enc_token.size());
+                            unsigned char* t_dec = new unsigned char[t_outlen];
+                            EVP_PKEY_decrypt(t_ctx, t_dec, &t_outlen, (const unsigned char*)enc_token.data(), enc_token.size());
+
+                            std::string final_token((char*)t_dec, t_outlen);
+                            this->setToken(final_token);
+                            delete[] t_dec;
+                            EVP_PKEY_CTX_free(t_ctx);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        EVP_PKEY_free(pkey);
+        ws.disconnect();
+    }).detach();
+}
+
 long Discord::login(){
 	return login(email , password);
 }

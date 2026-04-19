@@ -16,7 +16,8 @@
 
 void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size) {
 	std::vector<unsigned int> utf32str;
-	utf8::utf8to32(text.begin(), text.end(), std::back_inserter(utf32str));
+	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
+	std::u32string utf32str = converter.from_bytes(text);
 
 	int currentX = startX;
 	for (unsigned int x = 0; x < utf32str.size(); x++) {
@@ -45,8 +46,8 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 			std::vector<unsigned int> singleChar32;
 			singleChar32.push_back(codepoint);
 			std::string singleChar8;
-			utf8::utf32to8(singleChar32.begin(), singleChar32.end(), std::back_inserter(singleChar8));
-
+			std::string singleChar8 = converter.to_bytes(char32_character_variable);
+			
 			vita2d_font_draw_text(vita2dFont[size], currentX, startY, RGBA8(255, 255, 255, 255), size, singleChar8.c_str());
 			currentX += vita2d_font_text_width(vita2dFont[size], size, singleChar8.c_str());
 		}

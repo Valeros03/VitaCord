@@ -297,14 +297,8 @@ Discord::Discord(){
 					if( !emojiJsonData["emoji"][e].is_null() ){
 						if( !emojiJsonData["emoji"][e]["utf32code"].is_null() ){
 							if( !emojiJsonData["emoji"][e]["utf32code"][0].is_null() ){
-								code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
-
-								// Prevent keycap emojis from overriding standard digits 0-9
-								if(emojiJsonData["emoji"][e]["utf32code"].size() > 1 && code >= 48 && code <= 57) {
-									continue;
-								}
-
-								if( !emojiJsonData["emoji"][e]["x"].is_null() ){
+								if(emojiJsonData["emoji"][e]["utf32code"].size() == 1){
+									if( !emojiJsonData["emoji"][e]["x"].is_null() ){
 									if( !emojiJsonData["emoji"][e]["y"].is_null() ){
 										debugNetPrintf(DEBUG, " Declare new emoji!\n");
 										emoji addEmoji;
@@ -312,6 +306,8 @@ Discord::Discord(){
 										addEmoji.x = emojiJsonData["emoji"][e]["x"].get<int>();
 										debugNetPrintf(DEBUG, " assign emoji y\n");
 										addEmoji.y = emojiJsonData["emoji"][e]["y"].get<int>();
+										debugNetPrintf(DEBUG, " assign code \n");
+										code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
 										debugNetPrintf(DEBUG, " assign map key code's value to emoji\n");
 										emojiMap[code] = addEmoji;
 										debugNetPrintf(DEBUG, " push back code in testarray\n");
@@ -324,6 +320,7 @@ Discord::Discord(){
 										debugNetPrintf(DEBUG, " inc loadedIcons\n");
 										loadedIconsChecked++;
 									}
+								}
 								}
 							}
 						}
@@ -620,6 +617,18 @@ void Discord::getChannelMessages(int channelIndex){
 					}else{
 						newMessage.content = "";
 					}
+
+					if (j_complete[iR].contains("mentions") && !j_complete[iR]["mentions"].is_null()) {
+						int mAmount = j_complete[iR]["mentions"].size();
+						for (int m = 0; m < mAmount; m++) {
+							if (!j_complete[iR]["mentions"][m]["id"].is_null() && !j_complete[iR]["mentions"][m]["username"].is_null()) {
+								std::string mId = j_complete[iR]["mentions"][m]["id"].get<std::string>();
+								std::string mUser = j_complete[iR]["mentions"][m]["username"].get<std::string>();
+								newMessage.mentionsMap[mId] = mUser;
+							}
+						}
+					}
+
 					// author :
 					if(!j_complete[iR]["author"]["username"].is_null()){
 						newMessage.author.username = j_complete[iR]["author"]["username"].get<std::string>();
@@ -646,7 +655,7 @@ void Discord::getChannelMessages(int channelIndex){
 					}
 
 					newMessage.author.color = 0;
-					if(!j_complete[iR]["member"].is_null() && !j_complete[iR]["member"]["roles"].is_null()){
+					if(j_complete[iR].contains("member") && j_complete[iR]["member"].contains("roles") && !j_complete[iR]["member"]["roles"].is_null()){
 						int highest_pos = -1;
 						int rolesAmount = j_complete[iR]["member"]["roles"].size();
 						for(int r = 0; r < rolesAmount; r++){
@@ -1440,6 +1449,18 @@ void Discord::getCurrentDirectMessages(){
 					}else{
 						directMessages[currentDirectMessage].messages[i].content = "";
 					}
+
+					if (j_complete[i].contains("mentions") && !j_complete[i]["mentions"].is_null()) {
+						int mAmount = j_complete[i]["mentions"].size();
+						for (int m = 0; m < mAmount; m++) {
+							if (!j_complete[i]["mentions"][m]["id"].is_null() && !j_complete[i]["mentions"][m]["username"].is_null()) {
+								std::string mId = j_complete[i]["mentions"][m]["id"].get<std::string>();
+								std::string mUser = j_complete[i]["mentions"][m]["username"].get<std::string>();
+								directMessages[currentDirectMessage].messages[i].mentionsMap[mId] = mUser;
+							}
+						}
+					}
+
 					// author :
 					if(!j_complete[i]["author"]["username"].is_null()){
 						directMessages[currentDirectMessage].messages[i].author.username = j_complete[i]["author"]["username"].get<std::string>();

@@ -84,14 +84,14 @@ void processJsonWebhook(){
 	
 	char url[1024];
 	
-	const char urlS[] = "https://discordapp.com/api/webhooks/%s/%s" ;
+	const char urlS[] = "https://discord.com/api/webhooks/%s/%s" ;
 	
 	
 	
 	snprintf(url , 1024 , urlS , j_complete["id"].get<std::string>().c_str() , j_complete["token"].get<std::string>().c_str());
 
 	
-	std::string postdata = "{ \"username\":\"coderx3\" , \"content\":\"hi\" , \"avatar_url\":\"https://cdn.discordapp.com/avatars/206127888309682176/9ebc942fd23843bc3f7c1ee372fe84b6.png\" }";
+	std::string postdata = "{ \"username\":\"coderx3\" , \"content\":\"hi\" , \"avatar_url\":\"https://cdn.discord.com/avatars/206127888309682176/9ebc942fd23843bc3f7c1ee372fe84b6.png\" }";
 	
 	CURL *curl;
 	CURLcode res;
@@ -130,7 +130,7 @@ void processJsonWebhook(){
 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
 		headerchunk = curl_slist_append(headerchunk, userAgentHeader);
 		headerchunk = curl_slist_append(headerchunk, authorizationHeader.c_str());
-		headerchunk = curl_slist_append(headerchunk, "Host: discordapp.com");
+		headerchunk = curl_slist_append(headerchunk, "Host: discord.com");
 		
 		std::string ContentLengthS = "Content-Length: " + std::to_string(strlen(postdata.c_str()));
 		headerchunk = curl_slist_append(headerchunk, ContentLengthS.c_str());
@@ -166,9 +166,9 @@ void processJsonWebhook(){
 
 void loginDiscord(){
 	
-	postdata = "{ \"email\":\"" + useremail + "\" , \"password\":\"" + userpassword + "\" }";
+	postdata = "{ \"login\":\"" + useremail + "\" , \"password\":\"" + userpassword + "\" }";
 	
-	long httpcode =  curlDiscordPost("https://discordapp.com/api/auth/login" , postdata) ;
+	long httpcode =  curlDiscordPost("https://discord.com/api/v9/auth/login" , postdata) ;
 	
 	if(httpcode == 200){
 		//logged in!
@@ -192,7 +192,7 @@ void loginDiscord(){
 						code2fa = vitaIME.getUserText("Auth 2FA Code");
 						
 						postdata = "{ \"code\":\"" + code2fa + "\" , \"ticket\":\"" + ticket + "\" }";
-						httpcode = curlDiscordPost( "https://discordapp.com/api/v6/auth/mfa/totp" , postdata );
+						httpcode = curlDiscordPost( "https://discord.com/api/v9/auth/mfa/totp" , postdata );
 						
 						if(httpcode == 200){
 							
@@ -238,7 +238,7 @@ void getChannels(){
 	
 	for(int i = 0; i < guildsAmount ; i++){
 		
-		long httpcode =  curlDiscordGet("https://discordapp.com/api/guilds/" + guilds[i].id + "/channels" ) ;
+		long httpcode =  curlDiscordGet("https://discord.com/api/v9/guilds/" + guilds[i].id + "/channels" ) ;
 		if(httpcode == 200){
 			try{
 				nlohmann::json j_complete = nlohmann::json::parse(data);
@@ -304,7 +304,7 @@ void getChannels(){
 
 void getGuilds(){
 	
-	long httpcode =  curlDiscordGet("https://discordapp.com/api/users/@me/guilds" ) ;
+	long httpcode =  curlDiscordGet("https://discord.com/api/v9/users/@me/guilds" ) ;
 	
 	if(httpcode == 200){
 		try{
@@ -369,7 +369,7 @@ void getGuilds(){
 void sendMessage(){
 	
 	postdata = "{ \"content\":\"" + userMessage + "\" }";
-	long httpcode = curlDiscordPost("https://discordapp.com/api/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" , postdata );
+	long httpcode = curlDiscordPost("https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" , postdata );
 	
 	if(httpcode == 200){
 		
@@ -381,7 +381,7 @@ void sendMessage(){
 void getMessagesFromChannel(){
 	
 	
-	long httpcode =  curlDiscordGet("https://discordapp.com/api/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ) ;
+	long httpcode =  curlDiscordGet("https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ) ;
 	
 	if(httpcode == 200){
 		nlohmann::json j_complete = nlohmann::json::parse(data);

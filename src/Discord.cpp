@@ -133,7 +133,7 @@ Discord::~Discord(){
 bool Discord::sendDirectMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending DM\n" );
 	std::string postData = "{ \"content\":\"" + msg + "\" }";
-	std::string sendDMMessageUrl = "https://discordapp.com/api/v6/channels/"
+	std::string sendDMMessageUrl = "https://discord.com/api/v9/channels/"
 							+ directMessages[currentDirectMessage].id + "/messages" ;
 	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , token);
 	if(senddmmessageresponse.httpcode == 200){
@@ -147,7 +147,7 @@ bool Discord::sendDirectMessage(std::string msg){
 bool Discord::sendMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending message\n" );
 	std::string postData = "{ \"content\":\"" + msg + "\" }";
-	std::string sendMessageUrl = "https://discordapp.com/api/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ;
+	std::string sendMessageUrl = "https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ;
 	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , token);
 	if(sendmessageresponse.httpcode == 200){
 		debugNetPrintf(DEBUG , "Message SENT!\n" );
@@ -158,7 +158,7 @@ bool Discord::sendMessage(std::string msg){
 
 
 bool Discord::editMessage(std::string channelID , std::string messageID , std::string newContent){
-	std::string editMessageUrl = "https://discordapp.com/api/channels/" + channelID + "/messages/" + messageID;
+	std::string editMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
 	std::string patchData = "{ \"content\":\"" + newContent + "\" }";
 	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , token);
 	if(editmessageresponse.httpcode == 200){
@@ -184,7 +184,7 @@ bool Discord::editMessage(std::string channelID , std::string messageID , std::s
 }
 
 bool Discord::deleteMessage(std::string channelID , std::string messageID){
-	std::string deleteMessageUrl = "https://discordapp.com/api/channels/" + channelID + "/messages/" + messageID;
+	std::string deleteMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
 	VitaNet::http_response deletemessageresponse = vitaNet.curlDiscordDelete(deleteMessageUrl , token);
 	if(deletemessageresponse.httpcode == 204){
 
@@ -346,7 +346,7 @@ void Discord::parseMessageContentEmoji(message *m , std::string str){
 
 void Discord::getChannelMessages(int channelIndex){
 	currentChannel = channelIndex;
-	std::string channelMessagesUrl = "https://discordapp.com/api/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages?limit=100";
+	std::string channelMessagesUrl = "https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages?limit=100";
 
 	if(guilds[currentGuild].channels[currentChannel].gotMessagesOnce ){
 		channelMessagesUrl += "&after=" + guilds[currentGuild].channels[currentChannel].last_message_id;
@@ -747,7 +747,7 @@ void * Discord::thread_loadData(void *arg){
 	discordPtr->loadingData = true;
 	while(discordPtr->loadingData){
 		if(!discordPtr->loadedGuilds){
-			std::string guildsUrl = "https://discordapp.com/api/users/@me/guilds";
+			std::string guildsUrl = "https://discord.com/api/v9/users/@me/guilds";
 			VitaNet::http_response guildsresponse = discordPtr->vitaNet.curlDiscordGet(guildsUrl , token);
 			logSD(guildsresponse.body);
 			if(guildsresponse.httpcode == 200){
@@ -823,7 +823,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 
-				std::string myRolesUrl ="https://discordapp.com/api/guilds/" + discordPtr->guilds[i].id + "/members/" + discordPtr->id;
+				std::string myRolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/members/" + discordPtr->id;
 				VitaNet::http_response myRolesResponse = discordPtr->vitaNet.curlDiscordGet(myRolesUrl , token);
 				if(myRolesResponse.httpcode == 200){
 					try{
@@ -857,7 +857,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 
-				std::string channelUrl = "https://discordapp.com/api/guilds/" + discordPtr->guilds[i].id + "/channels";
+				std::string channelUrl = "https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/channels";
 				VitaNet::http_response channelresponse = discordPtr->vitaNet.curlDiscordGet(channelUrl , token);
 				logSD(channelresponse.body);
 				if(channelresponse.httpcode == 200){
@@ -1047,7 +1047,7 @@ void * Discord::thread_loadData(void *arg){
 			discordPtr->loadedChannels = true;
 		}else if(discordPtr->loadedGuilds && discordPtr->loadedChannels && !discordPtr->loadedDMs){
 
-			std::string directMessagesChannelsUrl = "https://discordapp.com/api/v6/users/@me/channels";
+			std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
 			VitaNet::http_response dmChannelsResponse = discordPtr->vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
 			logSD(dmChannelsResponse.body);
 			if(dmChannelsResponse.httpcode == 200){
@@ -1186,7 +1186,7 @@ void Discord::JoinDirectMessageChannel(int dIndex){
 }
 
 void Discord::getDirectMessageChannels(){
-	std::string directMessagesChannelsUrl = "https://discordapp.com/api/v6/users/@me/channels";
+	std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
 	VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
 
 	if(dmChannelsResponse.httpcode == 200){
@@ -1290,7 +1290,7 @@ bool Discord::refreshCurrentDirectMessages(){
 }
 
 void Discord::getCurrentDirectMessages(){
-	std::string dmChannelUrl = "https://discordapp.com/api/v6/channels/" + directMessages[currentDirectMessage].id + "/messages";
+	std::string dmChannelUrl = "https://discord.com/api/v9/channels/" + directMessages[currentDirectMessage].id + "/messages";
 	VitaNet::http_response dmChannelResponse = vitaNet.curlDiscordGet(dmChannelUrl , token);
 
 
@@ -1373,7 +1373,7 @@ void Discord::loadData(){
 long Discord::fetchUserData(){
 
 	logSD("Fetching userdata");
-	std::string userDataUrl = "https://discordapp.com/api/users/@me";
+	std::string userDataUrl = "https://discord.com/api/v9/users/@me";
 	VitaNet::http_response userdataresponse = vitaNet.curlDiscordGet(userDataUrl , token);
 	logSD("userdata response : " + userdataresponse.body);
 	if(userdataresponse.httpcode == 200){
@@ -1411,7 +1411,7 @@ long Discord::fetchUserData(){
 }
 
 void Discord::getGuilds(){
-	std::string guildUrl = "https://discordapp.com/api/users/@me/guilds";
+	std::string guildUrl = "https://discord.com/api/v9/users/@me/guilds";
 }
 void Discord::getChannels(){
 
@@ -1458,7 +1458,7 @@ long Discord::login(std::string mail , std::string pass){
 	}
 
 	//std::string loginUrl = "http://jaynapps.com/psvita/httpdump.php";  // DBG
-	std::string loginUrl = "https://discordapp.com/api/auth/login";
+	std::string loginUrl = "https://discord.com/api/v9/auth/login";
 	std::string postData = "{ \"email\":\"" + email + "\" , \"password\":\"" + password + "\" }";
 
 	criticalLogSD("Login request to : \n");
@@ -1531,7 +1531,7 @@ long Discord::submit2facode(std::string code){
 	}
 
 	std::string postData = "{ \"code\":\"" + code2fa + "\" , \"ticket\":\"" + ticket + "\" }";
-	VitaNet::http_response submit2facoderesponse = vitaNet.curlDiscordPost( "https://discordapp.com/api/v6/auth/mfa/totp" , postData , token);
+	VitaNet::http_response submit2facoderesponse = vitaNet.curlDiscordPost( "https://discord.com/api/v9/auth/mfa/totp" , postData , token);
 	logSD("Submit 2FA Response:");
 	if(submit2facoderesponse.httpcode == 200){
 		criticalLogSD("2FA request success : \n");

@@ -88,7 +88,7 @@ class Discord{
 		}channel;
 		typedef struct {
 			bool owner;
-			int permissions;
+				uint64_t permissions;
 			std::string icon; 
 			std::string id;
 			std::string name;

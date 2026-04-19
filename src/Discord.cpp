@@ -617,7 +617,7 @@ void Discord::getChannelMessages(int channelIndex){
 						newMessage.content = "";
 					}
 
-					if (j_complete[iR].count("mentions") > 0 && !j_complete[iR]["mentions"].is_null()) {
+					if (j_complete[iR].contains("mentions") && !j_complete[iR]["mentions"].is_null()) {
 						int mAmount = j_complete[iR]["mentions"].size();
 						for (int m = 0; m < mAmount; m++) {
 							if (!j_complete[iR]["mentions"][m]["id"].is_null() && !j_complete[iR]["mentions"][m]["username"].is_null()) {
@@ -654,12 +654,23 @@ void Discord::getChannelMessages(int channelIndex){
 					}
 
 					newMessage.author.color = 0;
-					if(j_complete[iR].count("member") > 0&& j_complete[iR]["member"].count("roles") > 0 && !j_complete[iR]["member"]["roles"].is_null()){
+					if(j_complete[iR].contains("member") && j_complete[iR]["member"].contains("roles") && !j_complete[iR]["member"]["roles"].is_null()){
 						int highest_pos = -1;
 						int rolesAmount = j_complete[iR]["member"]["roles"].size();
 						for(int r = 0; r < rolesAmount; r++){
 							std::string r_id = j_complete[iR]["member"]["roles"][r].get<std::string>();
-							newMessage.author.roles.push_back(r_id);
+							for(const auto& gr : guilds[currentGuild].roles){
+								if(gr.id == r_id && gr.color != 0){
+									if(gr.position > highest_pos){
+										highest_pos = gr.position;
+										unsigned int rawColor = gr.color;
+										unsigned char rc = (rawColor >> 16) & 0xFF;
+										unsigned char gc = (rawColor >> 8) & 0xFF;
+										unsigned char bc = rawColor & 0xFF;
+										newMessage.author.color = RGBA8(rc, gc, bc, 255);
+									}
+								}
+							}
 						}
 					}
 
@@ -972,7 +983,7 @@ void * Discord::thread_loadData(void *arg){
 											newRole.id = j_roles[r]["id"].get<std::string>();
 
 											newRole.color = 0;
-											if (j_roles[r].count("color") > 0 && !j_roles[r]["color"].is_null()) {
+											if (j_roles[r].contains("color") && !j_roles[r]["color"].is_null()) {
 												newRole.color = j_roles[r]["color"].get<unsigned int>();
 											}
 
@@ -1438,7 +1449,7 @@ void Discord::getCurrentDirectMessages(){
 						directMessages[currentDirectMessage].messages[i].content = "";
 					}
 
-					if (j_complete[i].count("mentions") > 0 && !j_complete[i]["mentions"].is_null()) {
+					if (j_complete[i].contains("mentions") && !j_complete[i]["mentions"].is_null()) {
 						int mAmount = j_complete[i]["mentions"].size();
 						for (int m = 0; m < mAmount; m++) {
 							if (!j_complete[i]["mentions"][m]["id"].is_null() && !j_complete[i]["mentions"][m]["username"].is_null()) {

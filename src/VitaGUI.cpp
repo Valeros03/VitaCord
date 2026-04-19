@@ -996,26 +996,6 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.y = 40  + allHeight ; // 40 = statusbar height
 			boxC.username = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.username;
 			boxC.userColor = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.color;
-
-			// Resolve dynamically in case roles fetched after messages
-			if(boxC.userColor == 0) {
-				int highest_pos = -1;
-				for(const auto& r_id : discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.roles) {
-					for(const auto& gr : discordPtr->guilds[discordPtr->currentGuild].roles) {
-						if(gr.id == r_id && gr.color != 0) {
-							if(gr.position > highest_pos) {
-								highest_pos = gr.position;
-								unsigned int rawColor = gr.color;
-								unsigned char rc = (rawColor >> 16) & 0xFF;
-								unsigned char gc = (rawColor >> 8) & 0xFF;
-								unsigned char bc = rawColor & 0xFF;
-								boxC.userColor = RGBA8(rc, gc, bc, 255);
-							}
-						}
-					}
-				}
-			}
-
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);

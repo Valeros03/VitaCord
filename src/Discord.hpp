@@ -8,7 +8,6 @@
 #include <sstream>
 #include <pthread.h>
 #include <vita2d.h>
-
 #include <unordered_map>
 
 #include "VitaNet.hpp"
@@ -64,7 +63,6 @@ class Discord{
 			std::string timestamp;
 			std::string id;
 			std::vector<message_emoji> emojis;
-			std::unordered_map<std::string, std::string> mentionsMap; 
 		}message;
 		typedef struct{
 			int allow;

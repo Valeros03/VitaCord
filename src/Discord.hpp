@@ -87,11 +87,6 @@ class Discord{
 			std::deque<message> messages;
 		}channel;
 		typedef struct {
-			std::string id;
-			unsigned int color;
-			int position;
-		}role;
-		typedef struct {
 			bool owner;
 				uint64_t permissions;
 			std::string icon; 
@@ -99,7 +94,6 @@ class Discord{
 			std::string name;
 			std::vector<channel> channels;
 			std::vector<std::string> myroles;
-			std::vector<role> roles;
 		}guild;
 		typedef struct {
 			std::string last_message_id;

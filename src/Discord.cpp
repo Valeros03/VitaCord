@@ -653,26 +653,15 @@ void Discord::getChannelMessages(int channelIndex){
 						newMessage.author.avatar = "0";
 					}
 
-					newMessage.author.color = 0;
-					if(j_complete[iR].contains("member") && j_complete[iR]["member"].contains("roles") && !j_complete[iR]["member"]["roles"].is_null()){
-						int highest_pos = -1;
-						int rolesAmount = j_complete[iR]["member"]["roles"].size();
-						for(int r = 0; r < rolesAmount; r++){
-							std::string r_id = j_complete[iR]["member"]["roles"][r].get<std::string>();
-							for(const auto& gr : guilds[currentGuild].roles){
-								if(gr.id == r_id && gr.color != 0){
-									if(gr.position > highest_pos){
-										highest_pos = gr.position;
-										unsigned int rawColor = gr.color;
-										unsigned char rc = (rawColor >> 16) & 0xFF;
-										unsigned char gc = (rawColor >> 8) & 0xFF;
-										unsigned char bc = rawColor & 0xFF;
-										newMessage.author.color = RGBA8(rc, gc, bc, 255);
-									}
-								}
-							}
-						}
+					std::string authorId = newMessage.author.id;
+					unsigned int hash = 0;
+					for (char c : authorId) {
+						hash = hash * 31 + c;
 					}
+					unsigned char r_col = (hash & 0xFF) % 128 + 127;
+					unsigned char g_col = ((hash >> 8) & 0xFF) % 128 + 127;
+					unsigned char b_col = ((hash >> 16) & 0xFF) % 128 + 127;
+					newMessage.author.color = RGBA8(r_col, g_col, b_col, 255);
 
 					newMessage.attachment.isEmpty = true;
 					
@@ -970,29 +959,6 @@ void * Discord::thread_loadData(void *arg){
 						if(!j_complete.is_null()){
 							discordPtr->guilds[i].channels.clear();
 							int channelsAmount = j_complete.size();
-							
-							std::string rolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/roles";
-							VitaNet::http_response rolesResponse = discordPtr->vitaNet.curlDiscordGet(rolesUrl , discordPtr->token);
-							if(rolesResponse.httpcode == 200){
-								try{
-									nlohmann::json j_roles = nlohmann::json::parse(rolesResponse.body);
-									if(!j_roles.is_null()){
-										int rAmount = j_roles.size();
-										for(int r = 0; r < rAmount; r++){
-											role newRole;
-											newRole.id = j_roles[r]["id"].get<std::string>();
-
-											newRole.color = 0;
-											if (j_roles[r].contains("color") && !j_roles[r]["color"].is_null()) {
-												newRole.color = j_roles[r]["color"].get<unsigned int>();
-											}
-
-											newRole.position = j_roles[r]["position"].get<int>();
-											discordPtr->guilds[i].roles.push_back(newRole);
-										}
-									}
-								}catch(...){}
-							}
 
 							logSD("Channel amount " + std::to_string(channelsAmount));
 							
@@ -1484,6 +1450,15 @@ void Discord::getCurrentDirectMessages(){
 					}else{
 						directMessages[currentDirectMessage].messages[i].author.avatar = "";
 					}
+					std::string authorId = directMessages[currentDirectMessage].messages[i].author.id;
+					unsigned int hash = 0;
+					for (char c : authorId) {
+						hash = hash * 31 + c;
+					}
+					unsigned char r_col = (hash & 0xFF) % 128 + 127;
+					unsigned char g_col = ((hash >> 8) & 0xFF) % 128 + 127;
+					unsigned char b_col = ((hash >> 16) & 0xFF) % 128 + 127;
+					directMessages[currentDirectMessage].messages[i].author.color = RGBA8(r_col, g_col, b_col, 255);
 				}
 			}
 		}catch(const std::exception& e){

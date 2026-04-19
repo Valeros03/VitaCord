@@ -7,12 +7,30 @@
 #include <psp2/power.h>
 #include <psp2/rtc.h>
 #include <debugnet.h>
-#include <regex>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 
+
+std::string cleanMentions(std::string text) {
+	size_t start = 0;
+	while ((start = text.find("<@", start)) != std::string::npos) {
+		size_t end = text.find(">", start);
+		if (end != std::string::npos) {
+			size_t idStart = start + 2;
+			if (idStart < text.length() && (text[idStart] == '!' || text[idStart] == '&')) {
+				idStart++;
+			}
+			std::string id = text.substr(idStart, end - idStart);
+			text.replace(start, end - start + 1, "@" + id);
+			start += 1 + id.length();
+		} else {
+			start += 2;
+		}
+	}
+	return text;
+}
 
 void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth) {
 	
@@ -973,7 +991,7 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.y = 40  + allHeight ; // 40 = statusbar height
 			boxC.username = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.username;
 			boxC.userColor = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.color;
-			boxC.content = std::regex_replace(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, std::regex("<@!?(\\d+)>"), "@User");
+			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content);
 			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
 			// wrapping in discord.cpp bcz of emoji :
 			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
@@ -1106,7 +1124,7 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.username = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.username;
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
-			std::string parsedContent = std::regex_replace(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content, std::regex("<@!?(\\d+)>"), "@User");
+			std::string parsedContent = cleanMentions(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content);
 			boxC.lineCount = wordWrap( parsedContent , 30 , boxC.content);
 			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);

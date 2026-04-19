@@ -58,7 +58,7 @@ target_link_libraries(${SHORT_NAME}.elf
   SceGxm_stub
   SceNet_stub
   SceAppMgr_stub
-  SceSharedFb_stub
+
   ScePgf_stub
   ScePvf_stub
   SceHttp_stub

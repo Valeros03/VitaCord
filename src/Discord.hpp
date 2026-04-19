@@ -116,12 +116,9 @@ class Discord{
 		
 		Discord();
 		~Discord();
-		void setEmail(std::string mail);
-		void setPassword(std::string pass);
 		void setToken(std::string tok);
 		long login();
-		long login(std::string mail , std::string pass);
-		long submit2facode(std::string code);
+		long login(std::string tok);
 		std::string getToken();
 		std::string getTicket();
 		std::string getUsername();

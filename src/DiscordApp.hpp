@@ -16,12 +16,11 @@ class DiscordApp{
 	public:
 		void Start();
 		void loadUserDataFromFile();
-		void saveUserDataToFile(std::string m , std::string p , std::string t);
+		void saveUserDataToFile(std::string t);
 		
 	private:
 		char emptyMessage[1] = "";
-		char emailTitle[14] = "Discord Email";
-		char passwordTitle[17] = "Discord Password";
+		char tokenTitle[14] = "Discord Token";
 		char messageTitle[8] = "Message";
 		char get2facodeTitle[30] = "Enter your 2Factor Auth Code!";
 		VitaGUI vitaGUI;
@@ -34,8 +33,7 @@ class DiscordApp{
 		int vitaState = 0;
 		
 		void doLogin();
-		void getUserEmailInput();
-		void getUserPasswordInput();
+		void getUserTokenInput();
 		
 		
 		

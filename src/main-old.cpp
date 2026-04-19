@@ -327,7 +327,11 @@ void getGuilds(){
 						}
 						
 						if(!j_complete[i]["permissions"].is_null()){
-							guilds[i].permissions = j_complete[i]["permissions"].get<long>();
+								if (j_complete[i]["permissions"].is_string()) {
+									guilds[i].permissions = std::stoull(j_complete[i]["permissions"].get<std::string>());
+								} else {
+									guilds[i].permissions = j_complete[i]["permissions"].get<uint64_t>();
+								}
 						}else{
 							guilds[i].permissions = 0;
 						}

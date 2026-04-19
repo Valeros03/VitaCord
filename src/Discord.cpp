@@ -822,7 +822,7 @@ void Discord::LeaveChannel(){
 	currentChannel = 0;
 }
 void Discord::setToken(std::string tok){
-	TOKEN = tok;
+	token = tok;
 }
 
 
@@ -1532,9 +1532,9 @@ long Discord::login(){
 }
 long Discord::login(std::string tok){
 	criticalLogSD("Login attempt.\n");
-	TOKEN = tok;
 
-	if(TOKEN.length() < 1){
+	token = tok;
+	if(tok.length() < 1){
 		criticalLogSD("Token too short! \n");
 		return -11;
 	}

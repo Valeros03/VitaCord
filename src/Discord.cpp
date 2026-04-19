@@ -21,7 +21,7 @@
 
 #include <psp2/kernel/processmgr.h>
 
-#define TOKEN "****"
+#include "key.h"
 
 uint64_t Discord::osGetTimeMS(){
 	return (sceKernelGetProcessTimeWide() / 1000);

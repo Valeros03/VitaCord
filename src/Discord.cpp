@@ -297,27 +297,29 @@ Discord::Discord(){
 					if( !emojiJsonData["emoji"][e].is_null() ){
 						if( !emojiJsonData["emoji"][e]["utf32code"].is_null() ){
 							if( !emojiJsonData["emoji"][e]["utf32code"][0].is_null() ){
-								if( !emojiJsonData["emoji"][e]["x"].is_null() ){
-									if( !emojiJsonData["emoji"][e]["y"].is_null() ){
-										debugNetPrintf(DEBUG, " Declare new emoji!\n");
-										emoji addEmoji;
-										debugNetPrintf(DEBUG, " assign emoji x\n");
-										addEmoji.x = emojiJsonData["emoji"][e]["x"].get<int>();
-										debugNetPrintf(DEBUG, " assign emoji y\n");
-										addEmoji.y = emojiJsonData["emoji"][e]["y"].get<int>();
-										debugNetPrintf(DEBUG, " assign code \n");
-										code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
-										debugNetPrintf(DEBUG, " assign map key code's value to emoji\n");
-										emojiMap[code] = addEmoji;
-										debugNetPrintf(DEBUG, " push back code in testarray\n");
-										emojiTestArray.push_back(code);
+								if(emojiJsonData["emoji"][e]["utf32code"].size() == 1){
+									if( !emojiJsonData["emoji"][e]["x"].is_null() ){
+										if( !emojiJsonData["emoji"][e]["y"].is_null() ){
+											debugNetPrintf(DEBUG, " Declare new emoji!\n");
+											emoji addEmoji;
+											debugNetPrintf(DEBUG, " assign emoji x\n");
+											addEmoji.x = emojiJsonData["emoji"][e]["x"].get<int>();
+											debugNetPrintf(DEBUG, " assign emoji y\n");
+											addEmoji.y = emojiJsonData["emoji"][e]["y"].get<int>();
+											debugNetPrintf(DEBUG, " assign code \n");
+											code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
+											debugNetPrintf(DEBUG, " assign map key code's value to emoji\n");
+											emojiMap[code] = addEmoji;
+											debugNetPrintf(DEBUG, " push back code in testarray\n");
+											emojiTestArray.push_back(code);
 
-											EmojiData eData = { (uint32_t)code, addEmoji.x, addEmoji.y };
-											emojiVector.push_back(eData);
-											fastEmojiMap[(uint32_t)code] = emojiVector.size() - 1;
+												EmojiData eData = { (uint32_t)code, addEmoji.x, addEmoji.y };
+												emojiVector.push_back(eData);
+												fastEmojiMap[(uint32_t)code] = emojiVector.size() - 1;
 
-										debugNetPrintf(DEBUG, " inc loadedIcons\n");
-										loadedIconsChecked++;
+											debugNetPrintf(DEBUG, " inc loadedIcons\n");
+											loadedIconsChecked++;
+										}
 									}
 								}
 							}

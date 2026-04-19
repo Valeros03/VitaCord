@@ -77,7 +77,7 @@ class VitaGUI{
 		void DrawDirectMessageUsersOnSidebar();
 		void DrawDirectMessageMessages();
 		
-		void DrawTextWithEmojis(std::string text, int startX, int startY, int size);
+		void DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth = 900);
 
 		void unshowLoginCue();
 		void showLoginCue();

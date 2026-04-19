@@ -311,6 +311,11 @@ Discord::Discord(){
 										emojiMap[code] = addEmoji;
 										debugNetPrintf(DEBUG, " push back code in testarray\n");
 										emojiTestArray.push_back(code);
+
+											EmojiData eData = { (uint32_t)code, addEmoji.x, addEmoji.y };
+											emojiVector.push_back(eData);
+											fastEmojiMap[(uint32_t)code] = emojiVector.size() - 1;
+
 										debugNetPrintf(DEBUG, " inc loadedIcons\n");
 										loadedIconsChecked++;
 									}

@@ -21,6 +21,8 @@
 
 #include <psp2/kernel/processmgr.h>
 
+#define TOKEN "MTQwMTkwMTM1NzIyMDQ5OTQ5OQ.GXjMw-.3boEYXRn0Hw5fyICjVgkaZbciT3D27nFKx21BQ"
+
 uint64_t Discord::osGetTimeMS(){
 	return (sceKernelGetProcessTimeWide() / 1000);
 }
@@ -135,7 +137,7 @@ bool Discord::sendDirectMessage(std::string msg){
 	std::string postData = "{ \"content\":\"" + msg + "\" }";
 	std::string sendDMMessageUrl = "https://discord.com/api/v9/channels/"
 							+ directMessages[currentDirectMessage].id + "/messages" ;
-	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , token);
+	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , TOKEN);
 	if(senddmmessageresponse.httpcode == 200){
 		debugNetPrintf(DEBUG , "DM SENT!\n" );
 		return true;
@@ -148,7 +150,7 @@ bool Discord::sendMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending message\n" );
 	std::string postData = "{ \"content\":\"" + msg + "\" }";
 	std::string sendMessageUrl = "https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ;
-	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , token);
+	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , TOKEN);
 	if(sendmessageresponse.httpcode == 200){
 		debugNetPrintf(DEBUG , "Message SENT!\n" );
 		return true;
@@ -185,7 +187,7 @@ bool Discord::editMessage(std::string channelID , std::string messageID , std::s
 
 bool Discord::deleteMessage(std::string channelID , std::string messageID){
 	std::string deleteMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
-	VitaNet::http_response deletemessageresponse = vitaNet.curlDiscordDelete(deleteMessageUrl , token);
+	VitaNet::http_response deletemessageresponse = vitaNet.curlDiscordDelete(deleteMessageUrl , TOKEN);
 	if(deletemessageresponse.httpcode == 204){
 
 		/* this code probably is cause of gpu crash , because vitagui tries to read the last message somewhere or so which does not exist .. maybe.
@@ -352,7 +354,7 @@ void Discord::getChannelMessages(int channelIndex){
 		channelMessagesUrl += "&after=" + guilds[currentGuild].channels[currentChannel].last_message_id;
 	}
 
-	VitaNet::http_response channelmessagesresponse = vitaNet.curlDiscordGet(channelMessagesUrl , token);
+	VitaNet::http_response channelmessagesresponse = vitaNet.curlDiscordGet(channelMessagesUrl , TOKEN);
 	logSD(channelmessagesresponse.body);
 	if(channelmessagesresponse.httpcode == 200){
 		nlohmann::json j_complete = nlohmann::json::parse(channelmessagesresponse.body);
@@ -748,7 +750,7 @@ void * Discord::thread_loadData(void *arg){
 	while(discordPtr->loadingData){
 		if(!discordPtr->loadedGuilds){
 			std::string guildsUrl = "https://discord.com/api/v9/users/@me/guilds";
-			VitaNet::http_response guildsresponse = discordPtr->vitaNet.curlDiscordGet(guildsUrl , token);
+			VitaNet::http_response guildsresponse = discordPtr->vitaNet.curlDiscordGet(guildsUrl , TOKEN);
 			logSD(guildsresponse.body);
 			if(guildsresponse.httpcode == 200){
 				try{
@@ -824,7 +826,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 				std::string myRolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/members/" + discordPtr->id;
-				VitaNet::http_response myRolesResponse = discordPtr->vitaNet.curlDiscordGet(myRolesUrl , token);
+				VitaNet::http_response myRolesResponse = discordPtr->vitaNet.curlDiscordGet(myRolesUrl , TOKEN);
 				if(myRolesResponse.httpcode == 200){
 					try{
 						nlohmann::json j_complete = nlohmann::json::parse(myRolesResponse.body);
@@ -858,7 +860,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 				std::string channelUrl = "https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/channels";
-				VitaNet::http_response channelresponse = discordPtr->vitaNet.curlDiscordGet(channelUrl , token);
+				VitaNet::http_response channelresponse = discordPtr->vitaNet.curlDiscordGet(channelUrl , TOKEN);
 				logSD(channelresponse.body);
 				if(channelresponse.httpcode == 200){
 					try{
@@ -1048,7 +1050,7 @@ void * Discord::thread_loadData(void *arg){
 		}else if(discordPtr->loadedGuilds && discordPtr->loadedChannels && !discordPtr->loadedDMs){
 
 			std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
-			VitaNet::http_response dmChannelsResponse = discordPtr->vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
+			VitaNet::http_response dmChannelsResponse = discordPtr->vitaNet.curlDiscordGet(directMessagesChannelsUrl , TOKEN);
 			logSD(dmChannelsResponse.body);
 			if(dmChannelsResponse.httpcode == 200){
 				try{
@@ -1187,7 +1189,7 @@ void Discord::JoinDirectMessageChannel(int dIndex){
 
 void Discord::getDirectMessageChannels(){
 	std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
-	VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
+	VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , TOKEN);
 
 	if(dmChannelsResponse.httpcode == 200){
 		try{
@@ -1291,7 +1293,7 @@ bool Discord::refreshCurrentDirectMessages(){
 
 void Discord::getCurrentDirectMessages(){
 	std::string dmChannelUrl = "https://discord.com/api/v9/channels/" + directMessages[currentDirectMessage].id + "/messages";
-	VitaNet::http_response dmChannelResponse = vitaNet.curlDiscordGet(dmChannelUrl , token);
+	VitaNet::http_response dmChannelResponse = vitaNet.curlDiscordGet(dmChannelUrl , TOKEN);
 
 
 
@@ -1374,7 +1376,7 @@ long Discord::fetchUserData(){
 
 	logSD("Fetching userdata");
 	std::string userDataUrl = "https://discord.com/api/v9/users/@me";
-	VitaNet::http_response userdataresponse = vitaNet.curlDiscordGet(userDataUrl , token);
+	VitaNet::http_response userdataresponse = vitaNet.curlDiscordGet(userDataUrl , TOKEN);
 	logSD("userdata response : " + userdataresponse.body);
 	if(userdataresponse.httpcode == 200){
 		// check if Two-Factor-Authentication is activated and needs further user action

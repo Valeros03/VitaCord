@@ -7,6 +7,215 @@
 #include <codecvt>
 #include <string>
 #include <iostream>
+#include <map>
+
+std::string replaceEmojiShortcodes(std::string str) {
+	static const std::map<std::string, std::string> emojis = {
+		{":smile:", "😄"},
+		{":smiley:", "😃"},
+		{":grinning:", "😀"},
+		{":blush:", "😊"},
+		{":relaxed:", "☺️"},
+		{":wink:", "😉"},
+		{":heart_eyes:", "😍"},
+		{":kissing_heart:", "😘"},
+		{":kissing_closed_eyes:", "😚"},
+		{":kissing:", "😗"},
+		{":kissing_smiling_eyes:", "😙"},
+		{":stuck_out_tongue_winking_eye:", "😜"},
+		{":stuck_out_tongue_closed_eyes:", "😝"},
+		{":stuck_out_tongue:", "😛"},
+		{":flushed:", "😳"},
+		{":grin:", "😁"},
+		{":pensive:", "😔"},
+		{":relieved:", "😌"},
+		{":unamused:", "😒"},
+		{":disappointed:", "😞"},
+		{":persevere:", "😣"},
+		{":cry:", "😢"},
+		{":joy:", "😂"},
+		{":sob:", "😭"},
+		{":sleepy:", "😪"},
+		{":disappointed_relieved:", "😥"},
+		{":cold_sweat:", "😰"},
+		{":sweat_smile:", "😅"},
+		{":sweat:", "😓"},
+		{":weary:", "😩"},
+		{":tired_face:", "😫"},
+		{":fearful:", "😨"},
+		{":scream:", "😱"},
+		{":angry:", "😠"},
+		{":rage:", "😡"},
+		{":triumph:", "😤"},
+		{":confounded:", "😖"},
+		{":laughing:", "😆"},
+		{":yum:", "😋"},
+		{":mask:", "😷"},
+		{":sunglasses:", "😎"},
+		{":sleeping:", "😴"},
+		{":dizzy_face:", "😵"},
+		{":astonished:", "😲"},
+		{":worried:", "😟"},
+		{":frowning:", "😦"},
+		{":anguished:", "😧"},
+		{":imp:", "👿"},
+		{":smiling_imp:", "😈"},
+		{":open_mouth:", "😮"},
+		{":grimacing:", "😬"},
+		{":neutral_face:", "😐"},
+		{":confused:", "😕"},
+		{":hushed:", "😯"},
+		{":smirk:", "😏"},
+		{":expressionless:", "😑"},
+		{":man_with_gua_pi_mao:", "👲"},
+		{":man_with_turban:", "👳"},
+		{":cop:", "👮"},
+		{":construction_worker:", "👷"},
+		{":guardsman:", "💂"},
+		{":baby:", "👶"},
+		{":boy:", "👦"},
+		{":girl:", "👧"},
+		{":man:", "👨"},
+		{":woman:", "👩"},
+		{":older_man:", "👴"},
+		{":older_woman:", "👵"},
+		{":person_with_blond_hair:", "👱"},
+		{":angel:", "👼"},
+		{":princess:", "👸"},
+		{":smiley_cat:", "😺"},
+		{":smile_cat:", "😸"},
+		{":heart_eyes_cat:", "😻"},
+		{":kissing_cat:", "😽"},
+		{":smirk_cat:", "😼"},
+		{":scream_cat:", "🙀"},
+		{":crying_cat_face:", "😿"},
+		{":joy_cat:", "😹"},
+		{":pouting_cat:", "😾"},
+		{":japanese_ogre:", "👹"},
+		{":japanese_goblin:", "👺"},
+		{":see_no_evil:", "🙈"},
+		{":hear_no_evil:", "🙉"},
+		{":speak_no_evil:", "🙊"},
+		{":skull:", "💀"},
+		{":alien:", "👽"},
+		{":poop:", "💩"},
+		{":fire:", "🔥"},
+		{":sparkles:", "✨"},
+		{":star2:", "🌟"},
+		{":dizzy:", "💫"},
+		{":boom:", "💥"},
+		{":anger:", "💢"},
+		{":sweat_drops:", "💦"},
+		{":droplet:", "💧"},
+		{":zzz:", "💤"},
+		{":dash:", "💨"},
+		{":ear:", "👂"},
+		{":eyes:", "👀"},
+		{":nose:", "👃"},
+		{":tongue:", "👅"},
+		{":lips:", "👄"},
+		{":thumbsup:", "👍"},
+		{":-1:", "👎"},
+		{":thumbsdown:", "👎"},
+		{":ok_hand:", "👌"},
+		{":punch:", "👊"},
+		{":facepunch:", "👊"},
+		{":fist:", "✊"},
+		{":v:", "✌️"},
+		{":wave:", "👋"},
+		{":hand:", "✋"},
+		{":raised_hand:", "✋"},
+		{":open_hands:", "👐"},
+		{":point_up:", "☝️"},
+		{":point_down:", "👇"},
+		{":point_left:", "👈"},
+		{":point_right:", "👉"},
+		{":raised_hands:", "🙌"},
+		{":pray:", "🙏"},
+		{":point_up_2:", "👆"},
+		{":clap:", "👏"},
+		{":muscle:", "💪"},
+		{":walking:", "🚶"},
+		{":runner:", "🏃"},
+		{":running:", "🏃"},
+		{":dancer:", "💃"},
+		{":couple:", "👫"},
+		{":family:", "👪"},
+		{":two_men_holding_hands:", "👬"},
+		{":two_women_holding_hands:", "👭"},
+		{":couplekiss:", "💏"},
+		{":couple_with_heart:", "💑"},
+		{":dancers:", "👯"},
+		{":ok_woman:", "🙆"},
+		{":no_good:", "🙅"},
+		{":information_desk_person:", "💁"},
+		{":raising_hand:", "🙋"},
+		{":massage:", "💆"},
+		{":haircut:", "💇"},
+		{":nail_care:", "💅"},
+		{":bride_with_veil:", "👰"},
+		{":person_with_pouting_face:", "🙎"},
+		{":person_frowning:", "🙍"},
+		{":bow:", "🙇"},
+		{":tophat:", "🎩"},
+		{":crown:", "👑"},
+		{":womans_hat:", "👒"},
+		{":athletic_shoe:", "👟"},
+		{":mans_shoe:", "👞"},
+		{":shoe:", "👞"},
+		{":sandal:", "👡"},
+		{":high_heel:", "👠"},
+		{":boot:", "👢"},
+		{":shirt:", "👕"},
+		{":tshirt:", "👕"},
+		{":necktie:", "👔"},
+		{":womans_clothes:", "👚"},
+		{":dress:", "👗"},
+		{":running_shirt_with_sash:", "🎽"},
+		{":jeans:", "👖"},
+		{":kimono:", "👘"},
+		{":bikini:", "👙"},
+		{":briefcase:", "💼"},
+		{":handbag:", "👜"},
+		{":pouch:", "👝"},
+		{":purse:", "👛"},
+		{":eyeglasses:", "👓"},
+		{":ribbon:", "🎀"},
+		{":closed_umbrella:", "🌂"},
+		{":lipstick:", "💄"},
+		{":yellow_heart:", "💛"},
+		{":blue_heart:", "💙"},
+		{":purple_heart:", "💜"},
+		{":green_heart:", "💚"},
+		{":heart:", "❤️"},
+		{":broken_heart:", "💔"},
+		{":heartpulse:", "💗"},
+		{":heartbeat:", "💓"},
+		{":two_hearts:", "💕"},
+		{":sparkling_heart:", "💖"},
+		{":revolving_hearts:", "💞"},
+		{":cupid:", "💘"},
+		{":love_letter:", "💌"},
+		{":kiss:", "💋"},
+		{":ring:", "💍"},
+		{":gem:", "💎"},
+		{":bust_in_silhouette:", "👤"},
+		{":busts_in_silhouette:", "👥"},
+		{":speech_balloon:", "💬"},
+		{":footprints:", "👣"},
+		{":thought_balloon:", "💭"}
+	};
+
+	std::string result = str;
+	for (const auto& pair : emojis) {
+		size_t pos = 0;
+		while ((pos = result.find(pair.first, pos)) != std::string::npos) {
+			result.replace(pos, pair.first.length(), pair.second);
+			pos += pair.second.length();
+		}
+	}
+	return result;
+}
 #include <iconv.h>
 #include <wchar.h>
 #include <stdlib.h>
@@ -134,7 +343,8 @@ Discord::~Discord(){
 }
 bool Discord::sendDirectMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending DM\n" );
-	std::string postData = "{ \"content\":\"" + msg + "\" }";
+	std::string processedMsg = replaceEmojiShortcodes(msg);
+	std::string postData = "{ \"content\":\"" + processedMsg + "\" }";
 	std::string sendDMMessageUrl = "https://discord.com/api/v9/channels/"
 							+ directMessages[currentDirectMessage].id + "/messages" ;
 	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , TOKEN);
@@ -148,7 +358,8 @@ bool Discord::sendDirectMessage(std::string msg){
 
 bool Discord::sendMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending message\n" );
-	std::string postData = "{ \"content\":\"" + msg + "\" }";
+	std::string processedMsg = replaceEmojiShortcodes(msg);
+	std::string postData = "{ \"content\":\"" + processedMsg + "\" }";
 	std::string sendMessageUrl = "https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ;
 	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , TOKEN);
 	if(sendmessageresponse.httpcode == 200){
@@ -161,7 +372,8 @@ bool Discord::sendMessage(std::string msg){
 
 bool Discord::editMessage(std::string channelID , std::string messageID , std::string newContent){
 	std::string editMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
-	std::string patchData = "{ \"content\":\"" + newContent + "\" }";
+	std::string processedMsg = replaceEmojiShortcodes(newContent);
+	std::string patchData = "{ \"content\":\"" + processedMsg + "\" }";
 	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , token);
 	if(editmessageresponse.httpcode == 200){
 

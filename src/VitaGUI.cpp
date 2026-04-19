@@ -62,13 +62,14 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 
 			Discord::EmojiData eData = discordPtr->emojiVector[it->second];
 			if (discordPtr->spritesheetEmoji != NULL) {
-				vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
-											   currentX, currentY - size + 4,
+				vita2d_draw_texture_part_scale_rotate(discordPtr->spritesheetEmoji,
+											   currentX + (discordPtr->emojiWidth * 1.5f) / 2.0f,
+											   currentY - size + 4 + (discordPtr->emojiHeight * 1.5f) / 2.0f,
 											   eData.x * discordPtr->emojiWidth,
 											   eData.y * discordPtr->emojiHeight,
 											   discordPtr->emojiWidth,
 											   discordPtr->emojiHeight,
-											   1.5f, 1.5f);
+											   1.5f, 1.5f, 0.0f);
 			}
 			currentX += itemWidth;
 		} else {

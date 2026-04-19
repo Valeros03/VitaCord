@@ -166,7 +166,7 @@ void processJsonWebhook(){
 
 void loginDiscord(){
 	
-	postdata = "{ \"email\":\"" + useremail + "\" , \"password\":\"" + userpassword + "\" }";
+	postdata = "{ \"login\":\"" + useremail + "\" , \"password\":\"" + userpassword + "\" }";
 	
 	long httpcode =  curlDiscordPost("https://discord.com/api/v9/auth/login" , postdata) ;
 	

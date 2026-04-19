@@ -1459,7 +1459,7 @@ long Discord::login(std::string mail , std::string pass){
 
 	//std::string loginUrl = "http://jaynapps.com/psvita/httpdump.php";  // DBG
 	std::string loginUrl = "https://discord.com/api/v9/auth/login";
-	std::string postData = "{ \"email\":\"" + email + "\" , \"password\":\"" + password + "\" }";
+	std::string postData = "{ \"login\":\"" + email + "\" , \"password\":\"" + password + "\" }";
 
 	criticalLogSD("Login request to : \n");
 	criticalLogSD(loginUrl.c_str());

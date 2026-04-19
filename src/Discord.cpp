@@ -297,29 +297,32 @@ Discord::Discord(){
 					if( !emojiJsonData["emoji"][e].is_null() ){
 						if( !emojiJsonData["emoji"][e]["utf32code"].is_null() ){
 							if( !emojiJsonData["emoji"][e]["utf32code"][0].is_null() ){
-								if(emojiJsonData["emoji"][e]["utf32code"].size() == 1){
-									if( !emojiJsonData["emoji"][e]["x"].is_null() ){
-										if( !emojiJsonData["emoji"][e]["y"].is_null() ){
-											debugNetPrintf(DEBUG, " Declare new emoji!\n");
-											emoji addEmoji;
-											debugNetPrintf(DEBUG, " assign emoji x\n");
-											addEmoji.x = emojiJsonData["emoji"][e]["x"].get<int>();
-											debugNetPrintf(DEBUG, " assign emoji y\n");
-											addEmoji.y = emojiJsonData["emoji"][e]["y"].get<int>();
-											debugNetPrintf(DEBUG, " assign code \n");
-											code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
-											debugNetPrintf(DEBUG, " assign map key code's value to emoji\n");
-											emojiMap[code] = addEmoji;
-											debugNetPrintf(DEBUG, " push back code in testarray\n");
-											emojiTestArray.push_back(code);
+								code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
 
-												EmojiData eData = { (uint32_t)code, addEmoji.x, addEmoji.y };
-												emojiVector.push_back(eData);
-												fastEmojiMap[(uint32_t)code] = emojiVector.size() - 1;
+								// Prevent keycap emojis from overriding standard digits 0-9
+								if(emojiJsonData["emoji"][e]["utf32code"].size() > 1 && code >= 48 && code <= 57) {
+									continue;
+								}
 
-											debugNetPrintf(DEBUG, " inc loadedIcons\n");
-											loadedIconsChecked++;
-										}
+								if( !emojiJsonData["emoji"][e]["x"].is_null() ){
+									if( !emojiJsonData["emoji"][e]["y"].is_null() ){
+										debugNetPrintf(DEBUG, " Declare new emoji!\n");
+										emoji addEmoji;
+										debugNetPrintf(DEBUG, " assign emoji x\n");
+										addEmoji.x = emojiJsonData["emoji"][e]["x"].get<int>();
+										debugNetPrintf(DEBUG, " assign emoji y\n");
+										addEmoji.y = emojiJsonData["emoji"][e]["y"].get<int>();
+										debugNetPrintf(DEBUG, " assign map key code's value to emoji\n");
+										emojiMap[code] = addEmoji;
+										debugNetPrintf(DEBUG, " push back code in testarray\n");
+										emojiTestArray.push_back(code);
+
+											EmojiData eData = { (uint32_t)code, addEmoji.x, addEmoji.y };
+											emojiVector.push_back(eData);
+											fastEmojiMap[(uint32_t)code] = emojiVector.size() - 1;
+
+										debugNetPrintf(DEBUG, " inc loadedIcons\n");
+										loadedIconsChecked++;
 									}
 								}
 							}
@@ -354,7 +357,7 @@ bool Discord::sendDirectMessage(std::string msg){
 	std::string postData = "{ \"content\":\"" + processedMsg + "\" }";
 	std::string sendDMMessageUrl = "https://discord.com/api/v9/channels/"
 							+ directMessages[currentDirectMessage].id + "/messages" ;
-	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , TOKEN);
+	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , token);
 	if(senddmmessageresponse.httpcode == 200){
 		debugNetPrintf(DEBUG , "DM SENT!\n" );
 		return true;
@@ -368,7 +371,7 @@ bool Discord::sendMessage(std::string msg){
 	std::string processedMsg = replaceEmojiShortcodes(msg);
 	std::string postData = "{ \"content\":\"" + processedMsg + "\" }";
 	std::string sendMessageUrl = "https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ;
-	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , TOKEN);
+	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , token);
 	if(sendmessageresponse.httpcode == 200){
 		debugNetPrintf(DEBUG , "Message SENT!\n" );
 		return true;
@@ -380,7 +383,7 @@ bool Discord::sendMessage(std::string msg){
 bool Discord::editMessage(std::string channelID , std::string messageID , std::string newContent){
 	std::string editMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
 	std::string patchData = "{ \"content\":\"" + newContent + "\" }";
-	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , TOKEN);
+	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , token);
 
 	if(editmessageresponse.httpcode == 200){
 
@@ -406,7 +409,7 @@ bool Discord::editMessage(std::string channelID , std::string messageID , std::s
 
 bool Discord::deleteMessage(std::string channelID , std::string messageID){
 	std::string deleteMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
-	VitaNet::http_response deletemessageresponse = vitaNet.curlDiscordDelete(deleteMessageUrl , TOKEN);
+	VitaNet::http_response deletemessageresponse = vitaNet.curlDiscordDelete(deleteMessageUrl , token);
 	if(deletemessageresponse.httpcode == 204){
 
 		/* this code probably is cause of gpu crash , because vitagui tries to read the last message somewhere or so which does not exist .. maybe.
@@ -573,7 +576,7 @@ void Discord::getChannelMessages(int channelIndex){
 		channelMessagesUrl += "&after=" + guilds[currentGuild].channels[currentChannel].last_message_id;
 	}
 
-	VitaNet::http_response channelmessagesresponse = vitaNet.curlDiscordGet(channelMessagesUrl , TOKEN);
+	VitaNet::http_response channelmessagesresponse = vitaNet.curlDiscordGet(channelMessagesUrl , token);
 	logSD(channelmessagesresponse.body);
 	if(channelmessagesresponse.httpcode == 200){
 		nlohmann::json j_complete = nlohmann::json::parse(channelmessagesresponse.body);
@@ -836,7 +839,7 @@ void * Discord::thread_loadData(void *arg){
 	while(discordPtr->loadingData){
 		if(!discordPtr->loadedGuilds){
 			std::string guildsUrl = "https://discord.com/api/v9/users/@me/guilds";
-			VitaNet::http_response guildsresponse = discordPtr->vitaNet.curlDiscordGet(guildsUrl , TOKEN);
+			VitaNet::http_response guildsresponse = vitaNet.curlDiscordGet(guildsUrl , token);
 			logSD(guildsresponse.body);
 			if(guildsresponse.httpcode == 200){
 				try{
@@ -916,7 +919,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 				std::string myRolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/members/" + discordPtr->id;
-				VitaNet::http_response myRolesResponse = discordPtr->vitaNet.curlDiscordGet(myRolesUrl , TOKEN);
+				VitaNet::http_response myRolesResponse = vitaNet.curlDiscordGet(myRolesUrl , token);
 				if(myRolesResponse.httpcode == 200){
 					try{
 						nlohmann::json j_complete = nlohmann::json::parse(myRolesResponse.body);
@@ -950,7 +953,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 				std::string channelUrl = "https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/channels";
-				VitaNet::http_response channelresponse = discordPtr->vitaNet.curlDiscordGet(channelUrl , TOKEN);
+				VitaNet::http_response channelresponse = vitaNet.curlDiscordGet(channelUrl , token);
 				logSD(channelresponse.body);
 				if(channelresponse.httpcode == 200){
 					try{
@@ -961,7 +964,7 @@ void * Discord::thread_loadData(void *arg){
 							int channelsAmount = j_complete.size();
 							
 							std::string rolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/roles";
-							VitaNet::http_response rolesResponse = discordPtr->vitaNet.curlDiscordGet(rolesUrl , TOKEN);
+							VitaNet::http_response rolesResponse = vitaNet.curlDiscordGet(rolesUrl , token);
 							if(rolesResponse.httpcode == 200){
 								try{
 									nlohmann::json j_roles = nlohmann::json::parse(rolesResponse.body);
@@ -1158,7 +1161,7 @@ void * Discord::thread_loadData(void *arg){
 		}else if(discordPtr->loadedGuilds && discordPtr->loadedChannels && !discordPtr->loadedDMs){
 
 			std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
-			VitaNet::http_response dmChannelsResponse = discordPtr->vitaNet.curlDiscordGet(directMessagesChannelsUrl , TOKEN);
+			VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
 			logSD(dmChannelsResponse.body);
 			if(dmChannelsResponse.httpcode == 200){
 				try{
@@ -1297,7 +1300,7 @@ void Discord::JoinDirectMessageChannel(int dIndex){
 
 void Discord::getDirectMessageChannels(){
 	std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
-	VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , TOKEN);
+	VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
 
 	if(dmChannelsResponse.httpcode == 200){
 		try{
@@ -1401,7 +1404,7 @@ bool Discord::refreshCurrentDirectMessages(){
 
 void Discord::getCurrentDirectMessages(){
 	std::string dmChannelUrl = "https://discord.com/api/v9/channels/" + directMessages[currentDirectMessage].id + "/messages";
-	VitaNet::http_response dmChannelResponse = vitaNet.curlDiscordGet(dmChannelUrl , TOKEN);
+	VitaNet::http_response dmChannelResponse = vitaNet.curlDiscordGet(dmChannelUrl , token);
 
 
 
@@ -1484,7 +1487,7 @@ long Discord::fetchUserData(){
 
 	logSD("Fetching userdata");
 	std::string userDataUrl = "https://discord.com/api/v9/users/@me";
-	VitaNet::http_response userdataresponse = vitaNet.curlDiscordGet(userDataUrl , TOKEN);
+	VitaNet::http_response userdataresponse = vitaNet.curlDiscordGet(userDataUrl , token);
 	logSD("userdata response : " + userdataresponse.body);
 	if(userdataresponse.httpcode == 200){
 		// check if Two-Factor-Authentication is activated and needs further user action

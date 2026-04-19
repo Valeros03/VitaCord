@@ -4,7 +4,6 @@
 #include <bitset>
 #include <pthread.h>
 #include <locale>
-#include <codecvt>
 #include <string>
 #include <iostream>
 #include <map>
@@ -656,22 +655,10 @@ void Discord::getChannelMessages(int channelIndex){
 
 					newMessage.author.color = 0;
 					if(j_complete[iR].contains("member") && j_complete[iR]["member"].contains("roles") && !j_complete[iR]["member"]["roles"].is_null()){
-						int highest_pos = -1;
 						int rolesAmount = j_complete[iR]["member"]["roles"].size();
 						for(int r = 0; r < rolesAmount; r++){
 							std::string r_id = j_complete[iR]["member"]["roles"][r].get<std::string>();
-							for(const auto& gr : guilds[currentGuild].roles){
-								if(gr.id == r_id && gr.color != 0){
-									if(gr.position > highest_pos){
-										highest_pos = gr.position;
-										unsigned int rawColor = gr.color;
-										unsigned char rc = (rawColor >> 16) & 0xFF;
-										unsigned char gc = (rawColor >> 8) & 0xFF;
-										unsigned char bc = rawColor & 0xFF;
-										newMessage.author.color = RGBA8(rc, gc, bc, 255);
-									}
-								}
-							}
+							newMessage.author.roles.push_back(r_id);
 						}
 					}
 

@@ -7,7 +7,6 @@
 #include "Discord.hpp"
 #include <vector>
 #include <string>
-#include <codecvt>
 #include <locale>
 
 #define MAX_DRAW_HEIGHT 550

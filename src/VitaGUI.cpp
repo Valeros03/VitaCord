@@ -37,53 +37,54 @@ std::string cleanMentions(std::string text, const std::unordered_map<std::string
 }
 
 void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth) {
-	
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
-	std::u32string utf32str = converter.from_bytes(text);
 
 	int currentX = startX;
 	int currentY = startY;
-	for (unsigned int x = 0; x < utf32str.size(); x++) {
-		uint32_t codepoint = utf32str[x];
+	size_t i = 0;
 
-		int itemWidth = 0;
+	while (i < text.length()) {
+		uint32_t codepoint = 0;
+		unsigned char c = (unsigned char)text[i];
+		size_t charLen = 1;
+
+		if (c <= 0x7F) { codepoint = c; }
+		else if ((c & 0xE0) == 0xC0) { codepoint = (c & 0x1F) << 6 | (text[i+1] & 0x3F); charLen = 2; }
+		else if ((c & 0xF0) == 0xE0) { codepoint = (c & 0x0F) << 12 | (text[i+1] & 0x3F) << 6 | (text[i+2] & 0x3F); charLen = 3; }
+		else if ((c & 0xF8) == 0xF0) { codepoint = (c & 0x07) << 18 | (text[i+1] & 0x3F) << 12 | (text[i+2] & 0x3F) << 6 | (text[i+3] & 0x3F); charLen = 4; }
+
 		auto it = discordPtr->fastEmojiMap.find(codepoint);
-		bool isEmoji = it != discordPtr->fastEmojiMap.end();
-		std::string singleChar8 = "";
-
-		if(isEmoji){
-			itemWidth = 16 * 1.5f;
-		} else {
-			singleChar8 = converter.to_bytes(codepoint);
-			itemWidth = vita2d_font_text_width(vita2dFont[size], size, singleChar8.c_str());
-		}
-
-		if (currentX + itemWidth > startX + maxWidth) {
-			currentX = startX;
-			currentY += size + 4;
-		}
-
-		if (isEmoji) {
-			size_t index = it->second;
-			Discord::EmojiData eData = discordPtr->emojiVector[index];
-
-			if (discordPtr->spritesheetEmoji != NULL) {
-				vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
-										 currentX, currentY - size + 4,
-										 eData.x * discordPtr->emojiWidth,
-										 eData.y * discordPtr->emojiHeight,
-										 discordPtr->emojiWidth,
-										 discordPtr->emojiHeight,
-										 1.5f, 1.5f);
+		if (it != discordPtr->fastEmojiMap.end()) {
+			int itemWidth = 16 * 1.5f;
+			if (currentX + itemWidth > startX + maxWidth) {
+				currentX = startX;
+				currentY += size + 4;
 			}
 
-			// Advance X, approximate width of emoji using font size, e.g. 18 for size 32 or 16 for size 15
-			currentX += 16 * 1.5f;
+			Discord::EmojiData eData = discordPtr->emojiVector[it->second];
+			if (discordPtr->spritesheetEmoji != NULL) {
+				vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
+											   currentX, currentY - size + 4,
+											   eData.x * discordPtr->emojiWidth,
+											   eData.y * discordPtr->emojiHeight,
+											   discordPtr->emojiWidth,
+											   discordPtr->emojiHeight,
+											   1.5f, 1.5f);
+			}
+			currentX += itemWidth;
 		} else {
+			std::string rawChar = text.substr(i, charLen);
+			int itemWidth = vita2d_font_text_width(vita2dFont[size], size, rawChar.c_str());
 
-			vita2d_font_draw_text(vita2dFont[size], currentX, currentY, RGBA8(255, 255, 255, 255), size, singleChar8.c_str());
+			if (currentX + itemWidth > startX + maxWidth) {
+				currentX = startX;
+				currentY += size + 4;
+			}
+
+			vita2d_font_draw_text(vita2dFont[size], currentX, currentY, RGBA8(255, 255, 255, 255), size, rawChar.c_str());
 			currentX += itemWidth;
 		}
+
+		i += charLen;
 	}
 }
 
@@ -995,6 +996,26 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.y = 40  + allHeight ; // 40 = statusbar height
 			boxC.username = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.username;
 			boxC.userColor = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.color;
+
+			// Resolve dynamically in case roles fetched after messages
+			if(boxC.userColor == 0) {
+				int highest_pos = -1;
+				for(const auto& r_id : discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.roles) {
+					for(const auto& gr : discordPtr->guilds[discordPtr->currentGuild].roles) {
+						if(gr.id == r_id && gr.color != 0) {
+							if(gr.position > highest_pos) {
+								highest_pos = gr.position;
+								unsigned int rawColor = gr.color;
+								unsigned char rc = (rawColor >> 16) & 0xFF;
+								unsigned char gc = (rawColor >> 8) & 0xFF;
+								unsigned char bc = rawColor & 0xFF;
+								boxC.userColor = RGBA8(rc, gc, bc, 255);
+							}
+						}
+					}
+				}
+			}
+
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);

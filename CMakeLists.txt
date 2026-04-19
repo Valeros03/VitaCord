@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   if(DEFINED ENV{VITASDK})
@@ -52,34 +52,41 @@ add_executable(${SHORT_NAME}.elf
 )
 
 target_link_libraries(${SHORT_NAME}.elf
-
-
   debugnet
   vita2d
+  SceDisplay_stub
+  SceGxm_stub
   SceNet_stub
+  SceAppMgr_stub
+  SceSharedFb_stub
   ScePgf_stub
   ScePvf_stub
-  SceGxm_stub
   SceHttp_stub
   SceCtrl_stub
   SceTouch_stub
   SceNetCtl_stub
   SceAppUtil_stub
-  SceDisplay_stub
   SceLibKernel_stub
   SceSysmodule_stub
   ScePower_stub
   SceCommonDialog_stub
   SceRegistryMgr_stub
+  
+  # Librerie "pesanti"
   ${CURL_LIBRARIES}
   ${OPENSSL_LIBRARIES}
-  c
-  m
-  z
+  
+  # Librerie grafiche e font (freetype per prima!)
+  freetype    
   png
   jpeg
+  
+  # Librerie di sistema e compressione (sempre per ultime)
+  bz2         
+  z
+  m
+  c
   pthread
-  freetype
 )
 
 

@@ -14,6 +14,45 @@
 
 
 
+void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size) {
+	
+	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
+	std::u32string utf32str = converter.from_bytes(text);
+
+	int currentX = startX;
+	for (unsigned int x = 0; x < utf32str.size(); x++) {
+		uint32_t codepoint = utf32str[x];
+
+		if (discordPtr->fastEmojiMap.find(codepoint) != discordPtr->fastEmojiMap.end()) {
+			size_t index = discordPtr->fastEmojiMap[codepoint];
+			Discord::EmojiData eData = discordPtr->emojiVector[index];
+
+			if (discordPtr->spritesheetEmoji != NULL) {
+				vita2d_draw_texture_part(discordPtr->spritesheetEmoji,
+										 currentX, startY - size + 4,
+										 eData.x * discordPtr->emojiWidth,
+										 eData.y * discordPtr->emojiHeight,
+										 discordPtr->emojiWidth,
+										 discordPtr->emojiHeight);
+			}
+
+			// Advance X, approximate width of emoji using font size, e.g. 18 for size 32 or 16 for size 15
+			if(size > 20) {
+				currentX += 20; // smaller spacing for big font since emoji is 16px (maybe scaled later)
+			} else {
+				currentX += 16; // 16px as requested
+			}
+		} else {
+			std::vector<unsigned int> singleChar32;
+			singleChar32.push_back(codepoint);
+			std::string singleChar8 = converter.to_bytes(x);
+
+			vita2d_font_draw_text(vita2dFont[size], currentX, startY, RGBA8(255, 255, 255, 255), size, singleChar8.c_str());
+			currentX += vita2d_font_text_width(vita2dFont[size], size, singleChar8.c_str());
+		}
+	}
+}
+
 VitaGUI::VitaGUI(){
 	vita2d_init();
 	vita2d_set_clear_color(RGBA8(0x40, 0x40, 0x40, 0xFF));
@@ -1122,6 +1161,8 @@ void VitaGUI::DrawLoginScreen(){
 	
 		vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(114, 137, 217, 255));
 		vita2d_draw_texture( loginFormImage , 161, 53 );
+		// Cover the EMAIL and PASSWORD areas with the background color
+		vita2d_draw_rectangle( 430, 110, 380, 200, RGBA8(54, 57, 63, 255) );
 		vita2d_font_draw_text(vita2dFont[18] , 438, 130, RGBA8(130, 134, 142, 255), 18, "TOKEN");
 		vita2d_font_draw_text(vita2dFont[18] , 438, 181, RGBA8(255,255,255,255), 18, loginTexts[0].c_str());
 		vita2d_draw_rectangle( 438, 190, 360, 2, RGBA8(130, 134, 142, 255) );
@@ -1178,8 +1219,9 @@ void VitaGUI::DrawMessages(){
 				
 			}
 			
-				vita2d_font_draw_text(vita2dFont[26], 243, yPos + 26, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
-				vita2d_font_draw_text(vita2dFont[32], 253, yPos + 50, RGBA8(255, 255, 255, 255), 32, messageBoxes[i].content.c_str());
+
+				vita2d_font_draw_text(vita2dFont[26], 283, yPos + 26, RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
+				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 50, 32);
 				 
 			if( messageBoxes[i].showAttachmentAsImage ){
 				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📷 Immagine ]");
@@ -1188,17 +1230,7 @@ void VitaGUI::DrawMessages(){
 			}
 
 			// DRAW EMOJIS:
-			for(unsigned int em = 0; em < messageBoxes[i].emojis.size() ; em++){
-				if(discordPtr->spritesheetEmoji  != NULL){
-					vita2d_draw_texture_part(discordPtr->spritesheetEmoji 
-					, 293 + ( messageBoxes[i].emojis[em].posX * discordPtr->emojiWidth )
-					, yPos + 32 + messageBoxes[i].emojis[em].posY * discordPtr->emojiHeight
-					, messageBoxes[i].emojis[em].spriteSheetX * discordPtr->emojiWidth
-					, messageBoxes[i].emojis[em].spriteSheetY * discordPtr->emojiHeight
-					, discordPtr->emojiWidth
-					, discordPtr->emojiHeight );
-				}
-			}
+			// Old emoji draw code removed, now using inline DrawTextWithEmojis.
 				
 			// Not drawing default icons anymore.
 		}
@@ -1259,7 +1291,7 @@ void VitaGUI::DrawDirectMessageMessages(){
 			
 				vita2d_font_draw_text(vita2dFont[15], 243, yPos + 26, directMessageMessagesBoxes[i].userColor ? directMessageMessagesBoxes[i].userColor : RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].username.c_str());
 
-				vita2d_font_draw_text(vita2dFont[15], 253, yPos + 50, RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].content.c_str());
+				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 50, 15);
 
 			
 			// Not drawing default icons anymore.

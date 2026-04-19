@@ -120,6 +120,12 @@ class Discord{
 			int y;
 		}emoji;
 		
+		typedef struct {
+			uint32_t code;
+			int x;
+			int y;
+		} EmojiData;
+
 		Discord();
 		~Discord();
 		void setToken(std::string tok);
@@ -180,6 +186,9 @@ class Discord{
 		std::unordered_map<int, emoji>::iterator emojiMapIterator;
 		int emojiCount;
 		std::vector<int> emojiTestArray;
+
+		std::vector<EmojiData> emojiVector;
+		std::unordered_map<uint32_t, size_t> fastEmojiMap;
 	private:
 		VitaNet vitaNet;
 		bool verified, mfa_enabled; // mfa == twofactor its the same

@@ -7,6 +7,8 @@
 #include "Discord.hpp"
 #include <vector>
 #include <string>
+#include <codecvt>
+#include <locale>
 
 #define MAX_DRAW_HEIGHT 550
 #define MIN_DRAW_HEIGHT -800
@@ -75,6 +77,8 @@ class VitaGUI{
 		void DrawDirectMessageUsersOnSidebar();
 		void DrawDirectMessageMessages();
 		
+		void DrawTextWithEmojis(std::string text, int startX, int startY, int size);
+
 		void unshowLoginCue();
 		void showLoginCue();
 		

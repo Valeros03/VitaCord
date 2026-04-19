@@ -5,6 +5,7 @@
 
 #include <debugnet.h>
 #include <psp2/io/fcntl.h>
+#include "key.h"
 
 
 void DiscordApp::loadUserDataFromFile ( ) {
@@ -62,6 +63,7 @@ void DiscordApp::loadUserDataFromFile ( ) {
 			int readBytes = sceIoRead ( fhMail , bufferMail , fileSize );
 			std::string encMailStr = std::string ( bufferMail , readBytes );
 			email = xorDecrypt ( encMailStr );
+			free(bufferMail);
 		}
 		sceIoClose ( fhMail );
 		
@@ -74,6 +76,7 @@ void DiscordApp::loadUserDataFromFile ( ) {
 			int readBytes = sceIoRead ( fhPass , bufferPass , fileSize );
 			std::string encPassStr = std::string ( bufferPass , readBytes );
 			password = xorDecrypt ( encPassStr );
+			free(bufferPass);
 		}
 		sceIoClose ( fhPass );
 		
@@ -83,9 +86,14 @@ void DiscordApp::loadUserDataFromFile ( ) {
 		sceIoLseek ( fhTok, 0, SCE_SEEK_SET );
 		if ( fileSize >= 5 ) {
 			char * bufferToken = ( char * ) malloc ( fileSize );
-			int readBytes = sceIoRead ( fhTok , bufferToken , fileSize );
-			std::string encTokenStr = std::string ( bufferToken , readBytes );
-			token = xorDecrypt ( encTokenStr );
+			if(bufferToken) {
+				int readBytes = sceIoRead ( fhTok , bufferToken , fileSize );
+				if(readBytes == fileSize) {
+					std::string encTokenStr = std::string ( bufferToken , readBytes );
+					token = xorDecrypt ( encTokenStr );
+				}
+				free(bufferToken);
+			}
 		}
 		sceIoClose ( fhTok );
 		
@@ -133,6 +141,10 @@ void DiscordApp::loadUserDataFromFile ( ) {
 	}
 	
 	
+	if (token.empty() || token.length() < 5) {
+		token = TOKEN;
+		saveUserDataToFile(token);
+	}
 	discord.setToken(token);
 	
 	vitaGUI.loginTexts[0] = discord.getToken();
@@ -144,8 +156,8 @@ void DiscordApp::saveUserDataToFile(std::string _tok){
 	
 	_tok = xorEncrypt(_tok);
 	
-	int fh = sceIoOpen("ux0:data/vitacord/user/cr.ecr", SCE_O_WRONLY | SCE_O_CREAT, 0777);
-	sceIoWrite(fh, _tok.c_str(), strlen(_tok.c_str()));
+	int fh = sceIoOpen("ux0:data/vitacord/user/cr.ecr", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+	sceIoWrite(fh, _tok.c_str(), _tok.length());
 	sceIoClose(fh);
 	
 }

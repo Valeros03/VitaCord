@@ -839,7 +839,7 @@ void * Discord::thread_loadData(void *arg){
 	while(discordPtr->loadingData){
 		if(!discordPtr->loadedGuilds){
 			std::string guildsUrl = "https://discord.com/api/v9/users/@me/guilds";
-			VitaNet::http_response guildsresponse = vitaNet.curlDiscordGet(guildsUrl , token);
+			VitaNet::http_response guildsresponse = discordPtr->vitaNet.curlDiscordGet(guildsUrl , discordPtr->token);
 			logSD(guildsresponse.body);
 			if(guildsresponse.httpcode == 200){
 				try{
@@ -919,7 +919,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 				std::string myRolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/members/" + discordPtr->id;
-				VitaNet::http_response myRolesResponse = vitaNet.curlDiscordGet(myRolesUrl , token);
+				VitaNet::http_response myRolesResponse = discordPtr->vitaNet.curlDiscordGet(myRolesUrl , discordPtr->token);
 				if(myRolesResponse.httpcode == 200){
 					try{
 						nlohmann::json j_complete = nlohmann::json::parse(myRolesResponse.body);
@@ -953,7 +953,7 @@ void * Discord::thread_loadData(void *arg){
 
 
 				std::string channelUrl = "https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/channels";
-				VitaNet::http_response channelresponse = vitaNet.curlDiscordGet(channelUrl , token);
+				VitaNet::http_response channelresponse = discordPtr->vitaNet.curlDiscordGet(channelUrl , discordPtr->token);
 				logSD(channelresponse.body);
 				if(channelresponse.httpcode == 200){
 					try{
@@ -964,7 +964,7 @@ void * Discord::thread_loadData(void *arg){
 							int channelsAmount = j_complete.size();
 							
 							std::string rolesUrl ="https://discord.com/api/v9/guilds/" + discordPtr->guilds[i].id + "/roles";
-							VitaNet::http_response rolesResponse = vitaNet.curlDiscordGet(rolesUrl , token);
+							VitaNet::http_response rolesResponse = discordPtr->vitaNet.curlDiscordGet(rolesUrl , discordPtr->token);
 							if(rolesResponse.httpcode == 200){
 								try{
 									nlohmann::json j_roles = nlohmann::json::parse(rolesResponse.body);
@@ -973,7 +973,12 @@ void * Discord::thread_loadData(void *arg){
 										for(int r = 0; r < rAmount; r++){
 											role newRole;
 											newRole.id = j_roles[r]["id"].get<std::string>();
-											newRole.color = j_roles[r]["color"].get<unsigned int>();
+
+											newRole.color = 0;
+											if (j_roles[r].contains("color") && !j_roles[r]["color"].is_null()) {
+												newRole.color = j_roles[r]["color"].get<unsigned int>();
+											}
+
 											newRole.position = j_roles[r]["position"].get<int>();
 											discordPtr->guilds[i].roles.push_back(newRole);
 										}
@@ -1161,7 +1166,7 @@ void * Discord::thread_loadData(void *arg){
 		}else if(discordPtr->loadedGuilds && discordPtr->loadedChannels && !discordPtr->loadedDMs){
 
 			std::string directMessagesChannelsUrl = "https://discord.com/api/v9/users/@me/channels";
-			VitaNet::http_response dmChannelsResponse = vitaNet.curlDiscordGet(directMessagesChannelsUrl , token);
+			VitaNet::http_response dmChannelsResponse = discordPtr->vitaNet.curlDiscordGet(directMessagesChannelsUrl , discordPtr->token);
 			logSD(dmChannelsResponse.body);
 			if(dmChannelsResponse.httpcode == 200){
 				try{

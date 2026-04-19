@@ -10,7 +10,7 @@ struct messageauthor{
 	std::string discriminator;
 	std::string id;
 	std::string avatar;
-
+	std::vector<std::string> roles;
 };
 
 #include <unordered_map>
@@ -53,4 +53,4 @@ struct user {
 
 };
 #endif
->>>>>>> 71117d0c85f13ce0d1d5d133f9923d267853656b
+

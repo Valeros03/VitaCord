@@ -7,47 +7,60 @@
 #include <psp2/power.h>
 #include <psp2/rtc.h>
 #include <debugnet.h>
-
+#include <regex>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 
 
-void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size) {
+void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth) {
 	
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
 	std::u32string utf32str = converter.from_bytes(text);
 
 	int currentX = startX;
+	int currentY = startY;
 	for (unsigned int x = 0; x < utf32str.size(); x++) {
 		uint32_t codepoint = utf32str[x];
 
+		int itemWidth = 0;
 		auto it = discordPtr->fastEmojiMap.find(codepoint);
-		if (it != discordPtr->fastEmojiMap.end()) {
+		bool isEmoji = it != discordPtr->fastEmojiMap.end();
+		std::string singleChar8 = "";
+
+		if(isEmoji){
+			itemWidth = 16 * 1.5f;
+		} else {
+			singleChar8 = converter.to_bytes(codepoint);
+			itemWidth = vita2d_font_text_width(vita2dFont[size], size, singleChar8.c_str());
+		}
+
+		if (currentX + itemWidth > startX + maxWidth) {
+			currentX = startX;
+			currentY += size + 4;
+		}
+
+		if (isEmoji) {
 			size_t index = it->second;
 			Discord::EmojiData eData = discordPtr->emojiVector[index];
 
 			if (discordPtr->spritesheetEmoji != NULL) {
-				vita2d_draw_texture_part(discordPtr->spritesheetEmoji,
-										 currentX, startY - size + 4,
+				vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
+										 currentX, currentY - size + 4,
 										 eData.x * discordPtr->emojiWidth,
 										 eData.y * discordPtr->emojiHeight,
 										 discordPtr->emojiWidth,
-										 discordPtr->emojiHeight);
+										 discordPtr->emojiHeight,
+										 1.5f, 1.5f);
 			}
 
 			// Advance X, approximate width of emoji using font size, e.g. 18 for size 32 or 16 for size 15
-			if(size > 20) {
-				currentX += 20; // smaller spacing for big font since emoji is 16px (maybe scaled later)
-			} else {
-				currentX += 16; // 16px as requested
-			}
+			currentX += 16 * 1.5f;
 		} else {
-			std::string singleChar8 = converter.to_bytes(codepoint);
 
-			vita2d_font_draw_text(vita2dFont[size], currentX, startY, RGBA8(255, 255, 255, 255), size, singleChar8.c_str());
-			currentX += vita2d_font_text_width(vita2dFont[size], size, singleChar8.c_str());
+			vita2d_font_draw_text(vita2dFont[size], currentX, currentY, RGBA8(255, 255, 255, 255), size, singleChar8.c_str());
+			currentX += itemWidth;
 		}
 	}
 }
@@ -1219,8 +1232,10 @@ void VitaGUI::DrawMessages(){
 			}
 			
 
-				vita2d_font_draw_text(vita2dFont[26], 283, yPos + 26, RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
-				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 50, 32);
+				vita2d_font_draw_text(vita2dFont[26], 283, yPos + 26, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
+
+				std::string displayContent = std::regex_replace(messageBoxes[i].content, std::regex("<@!?(\\d+)>"), "@User");
+				DrawTextWithEmojis(displayContent, 293, yPos + 60, 32);
 				 
 			if( messageBoxes[i].showAttachmentAsImage ){
 				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📷 Immagine ]");
@@ -1290,7 +1305,8 @@ void VitaGUI::DrawDirectMessageMessages(){
 			
 				vita2d_font_draw_text(vita2dFont[15], 243, yPos + 26, directMessageMessagesBoxes[i].userColor ? directMessageMessagesBoxes[i].userColor : RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].username.c_str());
 
-				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 50, 15);
+				std::string displayContent = std::regex_replace(directMessageMessagesBoxes[i].content, std::regex("<@!?(\\d+)>"), "@User");
+				DrawTextWithEmojis(displayContent, 293, yPos + 60, 15);
 
 			
 			// Not drawing default icons anymore.

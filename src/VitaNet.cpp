@@ -76,7 +76,7 @@ VitaNet::http_response VitaNet::curlDiscordDelete(std::string url , std::string 
 		headerchunk = curl_slist_append(headerchunk, "Content-Length: 0");
 		res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerchunk);
 		
-		
+		curl_easy_setopt(curl, CURLOPT_PROXY, "http://192.168.1.12:8080");
 		
 		res = curl_easy_perform(curl);
 		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &resp.httpcode);
@@ -137,7 +137,7 @@ VitaNet::http_response VitaNet::curlDiscordGet(std::string url , std::string aut
 		headerchunk = curl_slist_append(headerchunk, "Content-Length: 0");
 		res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerchunk);
 		
-		
+		curl_easy_setopt(curl, CURLOPT_PROXY, "http://192.168.1.12:8080");
 		
 		res = curl_easy_perform(curl);
 		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &resp.httpcode);
@@ -202,6 +202,7 @@ VitaNet::http_response VitaNet::curlDiscordPost(std::string url , std::string po
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postdata.c_str());
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(postdata.c_str()));
 		
+		curl_easy_setopt(curl, CURLOPT_PROXY, "http://192.168.1.12:8080");
 		
 		res = curl_easy_perform(curl);
 		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &resp.httpcode);
@@ -265,7 +266,7 @@ VitaNet::http_response VitaNet::curlDiscordPatch(std::string url , std::string p
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, patchData.c_str());
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(patchData.c_str()));
 		
-		
+		curl_easy_setopt(curl, CURLOPT_PROXY, "http://192.168.1.12:8080");
 		
 		res = curl_easy_perform(curl);
 		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &resp.httpcode);
@@ -342,7 +343,7 @@ VitaNet::http_response  VitaNet::curlDiscordDownloadImage(std::string url , std:
 		headerchunk = curl_slist_append(headerchunk, "Content-Length: 0");
 		res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerchunk);
 		
-		
+		curl_easy_setopt(curl, CURLOPT_PROXY, "http://192.168.1.12:8080");
 		
 		res = curl_easy_perform(curl);
 		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &resp.httpcode);

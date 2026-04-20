@@ -277,7 +277,9 @@ VitaGUI::VitaGUI(){
 	
 }
 void VitaGUI::loadEmojiFiles(){
-
+	// EMOJI LOADER: .. OR NOT ^^
+	//emojis.clear();
+	//emojis.push_back(emoji_icon());
 }
 
 void* VitaGUI::downloadImageWrapper(void* arg) {
@@ -288,7 +290,7 @@ void* VitaGUI::downloadImageWrapper(void* arg) {
 }
 
 void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
-    std::string savePath = "ux0:picture/vitacord/" + args->filename;
+    std::string savePath = "ux0:picture/VitaCord/" + args->filename;
 
     // Check if file already exists
     struct SceIoStat stat;
@@ -307,8 +309,8 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
 
     // Create directory if missing
     struct SceIoStat dirStat;
-    if (sceIoGetstat("ux0:picture/vitacord/", &dirStat) < 0) {
-        sceIoMkdir("ux0:picture/vitacord/", 0777);
+    if (sceIoGetstat("ux0:picture/VitaCord/", &dirStat) < 0) {
+        sceIoMkdir("ux0:picture/VitaCord/", 0777);
     }
 
     // Use VitaNet to download
@@ -984,8 +986,11 @@ int VitaGUI::click(int x , int y){
 
 						// Check Attachment
 						if (messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary) {
-							if (x > messageBoxes[i].attachmentBox.x && x < messageBoxes[i].attachmentBox.x + messageBoxes[i].attachmentBox.w &&
-								y > messageBoxes[i].attachmentBox.y && y < messageBoxes[i].attachmentBox.y + messageBoxes[i].attachmentBox.h) {
+							float attX = 243.0f;
+							float attW = 250.0f;
+							float attY = messageScrollY + messageBoxes[i].y + messageBoxes[i].messageHeight - 50.0f;
+							float attH = 45.0f;
+							if (x > attX && x < attX + attW && y > attY && y < attY + attH) {
 								if (messageBoxes[i].attachmentUrl != "") {
 									if (messageBoxes[i].showAttachmentAsImage) {
 										debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
@@ -1247,22 +1252,15 @@ bool VitaGUI::setMessageBoxes(){
 			}
 
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
-			// 1. Pulisci le menzioni
-			// Cerca questo punto in VitaGUI::setMessageBoxes
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
-
-			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
-			// Usa 36 come limite di sicurezza. Questo impedirà a DrawTextWithEmojis di tagliare le parole a tradimento!
-			int numLines = wordWrap(boxC.content, 640, boxC.content);
-
-			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
-			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
-			textHeight = numLines * (32 + 4); 
-
-			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
-
-			// 3. Solo ora calcola gli URL (sulla stringa già wrappata!)
 			boxC.urls = parseUrls(boxC.content);
+			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
+			// wrapping in discord.cpp bcz of emoji :
+			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
+			textHeight = vita2d_font_text_height(vita2dFont[32] , 32 , (char*)boxC.content.c_str() );
+			// why not just use text_height() on the content?? :)
+			//textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[15], 15, (char*)"H");
+			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
 			
 			
 			boxC.w = 730;
@@ -1335,92 +1333,19 @@ bool VitaGUI::setMessageBoxes(){
 	return false;
 }
 
-int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string &out) {
-    out = "";
-    if (str.empty()) return 0;
 
-    int lines = 1;
-    int currentLineWidth = 0;
-    std::string currentWord = "";
-    bool inUrl = false;
-    
-    // Dimensione del font usato per i messaggi
-    int fontSize = 32;
+int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
+	if(str.length() < maxCharacters ) {
+		out = str;
+		return 1;
 
-    auto flushWord = [&]() {
-        if (currentWord.empty()) return;
+	}
+	out = "";
+	int breaks = str.length() / maxCharacters;
+	for(int i = 0 ; i < breaks+1; i++){
+		out += str.substr(i*maxCharacters, maxCharacters) + '\n';
 
-        // Calcoliamo la larghezza ESATTA in pixel della parola
-        int wordWidth = 0;
-        for (size_t j = 0; j < currentWord.length(); ) {
-            unsigned char cw = currentWord[j];
-            size_t charLen = 1;
-            if (cw <= 0x7F) charLen = 1;
-            else if ((cw & 0xE0) == 0xC0) charLen = 2;
-            else if ((cw & 0xF0) == 0xE0) charLen = 3;
-            else if ((cw & 0xF8) == 0xF0) charLen = 4;
-            
-            std::string rawChar = currentWord.substr(j, charLen);
-            
-            // Misuriamo il singolo carattere con la libreria nativa
-            int charW = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
-            
-            // Workaround per il bug della libreria: se è un'emoji (dà <=0 ma occupa byte), forziamo 32 pixel
-            if (charW <= 0 && charLen >= 3) {
-                charW = 32; // Corrisponde al 16 * 2.0f del tuo renderer
-            }
-            wordWidth += charW;
-            j += charLen;
-        }
-
-        // Se la parola ci fa sforare i pixel dello schermo, ANDIAMO A CAPO prima di disegnarla!
-        if (currentLineWidth + wordWidth > maxWidthPixels && currentLineWidth > 0 && !inUrl) {
-            out += "\n";
-            lines++;
-            currentLineWidth = 0;
-        }
-        
-        out += currentWord;
-        currentLineWidth += wordWidth;
-        currentWord = "";
-        inUrl = false;
-    };
-
-    for (size_t k = 0; k < str.length(); ) {
-        unsigned char c = (unsigned char)str[k];
-        size_t charLen = 1;
-
-        if (c <= 0x7F) charLen = 1;
-        else if ((c & 0xE0) == 0xC0) charLen = 2;
-        else if ((c & 0xF0) == 0xE0) charLen = 3;
-        else if ((c & 0xF8) == 0xF0) charLen = 4;
-
-        std::string rawChar = str.substr(k, charLen);
-
-        if (!inUrl && currentWord.empty() && str.length() - k >= 4 && str.substr(k, 4) == "http") {
-            inUrl = true;
-        }
-
-        if (c == '\n') {
-            flushWord();
-            out += "\n";
-            lines++;
-            currentLineWidth = 0;
-        } 
-        else if (c == ' ' || c == '\t') {
-            flushWord();
-            out += rawChar;
-            // Aggiungiamo la larghezza dello spazio al conteggio totale
-            int spaceW = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
-            currentLineWidth += spaceW;
-        } 
-        else {
-            currentWord += rawChar;
-        }
-
-        k += charLen;
-    }
-    flushWord(); 
+	}
 
 	return breaks;
 }
@@ -1463,21 +1388,11 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
 			boxC.mentionsMap = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].mentionsMap;
-			// Cerca questo punto in VitaGUI::setMessageBoxes
-			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
-
-			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
-			// Usa 36 come limite di sicurezza. Questo impedirà a DrawTextWithEmojis di tagliare le parole a tradimento!
-			int numLines = wordWrap(boxC.content, 640, boxC.content);
-
-			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
-			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
-			textHeight = numLines * (32 + 4); 
-
-			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
-
-			// 3. Solo ora calcola gli URL (sulla stringa già wrappata!)
+			std::string parsedContent = cleanMentions(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content, boxC.mentionsMap);
+			boxC.lineCount = wordWrap( parsedContent , 30 , boxC.content);
 			boxC.urls = parseUrls(boxC.content);
+			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
+			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
 			allHeight += boxC.messageHeight;
 			
 			

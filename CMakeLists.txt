@@ -71,7 +71,6 @@ target_link_libraries(${SHORT_NAME}.elf
   ScePower_stub
   SceCommonDialog_stub
   SceRegistryMgr_stub
-  ScePhotoExport_stub
   
   # Librerie "pesanti"
   ${CURL_LIBRARIES}

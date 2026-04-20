@@ -91,7 +91,6 @@ class VitaGUI{
 		void unshowLoginCue();
 		void showLoginCue();
 		
-		void handleUrlClick(const std::string& urlStr);
 		
 		void setUserInfo();
 		

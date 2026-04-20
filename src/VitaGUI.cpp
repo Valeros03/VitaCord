@@ -378,18 +378,19 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
     pthread_mutex_lock(&uiNotificationMutex);
     if (resp.httpcode == 200 || resp.httpcode == 204) {
         // Creiamo un buffer dove il sistema scriverà il nuovo percorso nella Galleria
-		char exportedPath[256];
+        char exportedPath[256];
 
-		// Chiamata all'API con tutti i 7 argomenti richiesti
-		int result = scePhotoExportFromFile(
-			savePath.c_str(), // 1. Il percorso della tua immagine scaricata
-			nullptr,          // 2. PhotoExportParam (nullptr = usa parametri di default)
-			nullptr,          // 3. Memoria di lavoro (nullptr = alloca in automatico)
-			nullptr,          // 4. Callback di cancellazione (non ci serve)
-			nullptr,          // 5. User data (non ci serve)
-			exportedPath,     // 6. Buffer di output per il nuovo percorso
-			sizeof(exportedPath) // 7. Dimensione del buffer
-		);
+        // Chiamata all'API con tutti i 7 argomenti richiesti
+        int result = scePhotoExportFromFile(
+            savePath.c_str(), // 1. Il percorso della tua immagine scaricata
+            nullptr,          // 2. PhotoExportParam (nullptr = usa parametri di default)
+            nullptr,          // 3. Memoria di lavoro (nullptr = alloca in automatico)
+            nullptr,          // 4. Callback di cancellazione (non ci serve)
+            nullptr,          // 5. User data (non ci serve)
+            exportedPath,     // 6. Buffer di output per il nuovo percorso
+            sizeof(exportedPath) // 7. Dimensione del buffer
+        );
+
         if (result >= 0) {
              this->downloadNotificationText = "Salvato in Galleria";
         } else {
@@ -1054,31 +1055,33 @@ int VitaGUI::click(int x , int y){
 						if (messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary) {
 							if (x > messageBoxes[i].attachmentBox.x && x < messageBoxes[i].attachmentBox.x + messageBoxes[i].attachmentBox.w &&
 								y > messageBoxes[i].attachmentBox.y && y < messageBoxes[i].attachmentBox.y + messageBoxes[i].attachmentBox.h) {
-								if (messageBoxes[i].attachmentUrl != "" && messageBoxes[i].showAttachmentAsImage) {
-									debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
+								if (messageBoxes[i].attachmentUrl != "") {
+									if (messageBoxes[i].showAttachmentAsImage) {
+										debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
 
-									pthread_mutex_lock(&downloadMutex);
-									if (activeDownloads.find(messageBoxes[i].attachmentUrl) == activeDownloads.end()) {
-										activeDownloads[messageBoxes[i].attachmentUrl] = true;
-										pthread_mutex_unlock(&downloadMutex);
+										pthread_mutex_lock(&downloadMutex);
+										if (activeDownloads.find(messageBoxes[i].attachmentUrl) == activeDownloads.end()) {
+											activeDownloads[messageBoxes[i].attachmentUrl] = true;
+											pthread_mutex_unlock(&downloadMutex);
 
-										DownloadImageArgs* args = new DownloadImageArgs();
-										args->discordPtr = this->discordPtr;
-										args->url = messageBoxes[i].attachmentUrl;
-										args->filename = messageBoxes[i].attachmentFilename;
-										args->guiPtr = this;
+											DownloadImageArgs* args = new DownloadImageArgs();
+											args->discordPtr = this->discordPtr;
+											args->url = messageBoxes[i].attachmentUrl;
+											args->filename = messageBoxes[i].attachmentFilename;
+											args->guiPtr = this;
 
-										pthread_t downloadThread;
-										pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
-										pthread_detach(downloadThread);
+											pthread_t downloadThread;
+											pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+											pthread_detach(downloadThread);
 
-										pthread_mutex_lock(&uiNotificationMutex);
-										this->downloadNotificationText = "Download in corso...";
-										this->showDownloadNotification = true;
-										this->notificationTimer = 180;
-										pthread_mutex_unlock(&uiNotificationMutex);
-									} else {
-										pthread_mutex_unlock(&downloadMutex);
+											pthread_mutex_lock(&uiNotificationMutex);
+											this->downloadNotificationText = "Download in corso...";
+											this->showDownloadNotification = true;
+											this->notificationTimer = 180;
+											pthread_mutex_unlock(&uiNotificationMutex);
+										} else {
+											pthread_mutex_unlock(&downloadMutex);
+										}
 									}
 									return -1;
 								}
@@ -1652,16 +1655,16 @@ void VitaGUI::DrawMessages(){
 				std::string attText = "[ 📷 Immagine ]";
 				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
 				messageBoxes[i].attachmentBox.x = 243;
-				messageBoxes[i].attachmentBox.y = yPos + height - 16 - vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
-				messageBoxes[i].attachmentBox.w = vita2d_font_text_width(vita2dFont[24], 24, attText.c_str());
-				messageBoxes[i].attachmentBox.h = vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
+				messageBoxes[i].attachmentBox.y = yPos + height - 40;
+				messageBoxes[i].attachmentBox.w = 200;
+				messageBoxes[i].attachmentBox.h = 40;
 			}else if( messageBoxes[i].showAttachmentAsBinary ){
 				std::string attText = "[ 📎 Allegato ]";
 				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
 				messageBoxes[i].attachmentBox.x = 243;
-				messageBoxes[i].attachmentBox.y = yPos + height - 16 - vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
-				messageBoxes[i].attachmentBox.w = vita2d_font_text_width(vita2dFont[24], 24, attText.c_str());
-				messageBoxes[i].attachmentBox.h = vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
+				messageBoxes[i].attachmentBox.y = yPos + height - 40;
+				messageBoxes[i].attachmentBox.w = 200;
+				messageBoxes[i].attachmentBox.h = 40;
 			}
 
 			// DRAW EMOJIS:

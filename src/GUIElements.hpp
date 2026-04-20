@@ -73,6 +73,7 @@ typedef struct{
 	bool showAttachmentAsImage;
 	bool showAttachmentAsBinary;
 	std::string attachmentFilename;
+	std::string attachmentUrl;
 	vita2d_texture * attachmentThumbnail;
 	int attachmentReadableSize;
 	std::string attachmentReadableSizeUnit;

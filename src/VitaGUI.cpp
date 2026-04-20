@@ -1,4 +1,7 @@
 #include "VitaGUI.hpp"
+#include <pthread.h>
+#include <psp2/photoexport.h>
+#include "VitaNet.hpp"
 #include "log.hpp"
 #include <istream>
 #include <sstream>
@@ -279,6 +282,62 @@ void VitaGUI::loadEmojiFiles(){
 	//emojis.push_back(emoji_icon());
 }
 
+void* VitaGUI::downloadImageWrapper(void* arg) {
+    DownloadImageArgs* args = reinterpret_cast<DownloadImageArgs*>(arg);
+    args->guiPtr->downloadImageThread(args);
+    delete args;
+    return nullptr;
+}
+
+void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
+    std::string savePath = "ux0:picture/VitaCord/" + args->filename;
+
+    // Check if file already exists
+    struct SceIoStat stat;
+    if (sceIoGetstat(savePath.c_str(), &stat) >= 0) {
+        debugNetPrintf(DEBUG, "File %s already exists. Skipping download.\n", savePath.c_str());
+        pthread_mutex_lock(&uiNotificationMutex);
+        this->downloadNotificationText = "File gia' in Galleria";
+        this->showDownloadNotification = true;
+        this->notificationTimer = 180;
+        pthread_mutex_unlock(&uiNotificationMutex);
+        pthread_mutex_lock(&downloadMutex);
+        activeDownloads.erase(args->url);
+        pthread_mutex_unlock(&downloadMutex);
+        return;
+    }
+
+    // Create directory if missing
+    struct SceIoStat dirStat;
+    if (sceIoGetstat("ux0:picture/VitaCord/", &dirStat) < 0) {
+        sceIoMkdir("ux0:picture/VitaCord/", 0777);
+    }
+
+    // Use VitaNet to download
+    VitaNet net;
+    VitaNet::http_response resp = net.curlDiscordDownloadImage(args->url, args->discordPtr->token, savePath);
+
+    pthread_mutex_lock(&uiNotificationMutex);
+    if (resp.httpcode == 200 || resp.httpcode == 204) {
+        int result = scePhotoExportFromFile(savePath.c_str());
+        if (result >= 0) {
+             this->downloadNotificationText = "Salvato in Galleria";
+        } else {
+             this->downloadNotificationText = "Errore Galleria";
+        }
+    } else {
+         this->downloadNotificationText = "Errore Download";
+    }
+
+    this->showDownloadNotification = true;
+    this->notificationTimer = 180;
+    pthread_mutex_unlock(&uiNotificationMutex);
+
+    pthread_mutex_lock(&downloadMutex);
+    activeDownloads.erase(args->url);
+    pthread_mutex_unlock(&downloadMutex);
+}
+
 VitaGUI::~VitaGUI(){
 	vita2d_fini();
 	vita2d_free_texture(backgroundImage);
@@ -320,6 +379,15 @@ void VitaGUI::DrawStatusBar() {
 			vita2d_draw_rectangle((947.0f - width), 6, width, 16, RGBA8(91, 223, 38, 255));
 		vita2d_draw_texture(statbarBatteryImage, batteryX, 4);
 		}
+
+	pthread_mutex_lock(&uiNotificationMutex);
+	if (showDownloadNotification && notificationTimer > 0) {
+		vita2d_font_draw_text(vita2dFont[20], 10, 25, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
+		notificationTimer--;
+	} else if (notificationTimer <= 0) {
+		showDownloadNotification = false;
+	}
+	pthread_mutex_unlock(&uiNotificationMutex);
 	
 	// Date & time
 	SceDateTime time;
@@ -916,9 +984,34 @@ int VitaGUI::click(int x , int y){
 						if (messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary) {
 							if (x > messageBoxes[i].attachmentBox.x && x < messageBoxes[i].attachmentBox.x + messageBoxes[i].attachmentBox.w &&
 								y > messageBoxes[i].attachmentBox.y && y < messageBoxes[i].attachmentBox.y + messageBoxes[i].attachmentBox.h) {
-								// TODO: Handle Attachment click
-								debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
-								return -1;
+								if (messageBoxes[i].attachmentUrl != "" && messageBoxes[i].showAttachmentAsImage) {
+									debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
+
+									pthread_mutex_lock(&downloadMutex);
+									if (activeDownloads.find(messageBoxes[i].attachmentUrl) == activeDownloads.end()) {
+										activeDownloads[messageBoxes[i].attachmentUrl] = true;
+										pthread_mutex_unlock(&downloadMutex);
+
+										DownloadImageArgs* args = new DownloadImageArgs();
+										args->discordPtr = this->discordPtr;
+										args->url = messageBoxes[i].attachmentUrl;
+										args->filename = messageBoxes[i].attachmentFilename;
+										args->guiPtr = this;
+
+										pthread_t downloadThread;
+										pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+										pthread_detach(downloadThread);
+
+										pthread_mutex_lock(&uiNotificationMutex);
+										this->downloadNotificationText = "Download in corso...";
+										this->showDownloadNotification = true;
+										this->notificationTimer = 180;
+										pthread_mutex_unlock(&uiNotificationMutex);
+									} else {
+										pthread_mutex_unlock(&downloadMutex);
+									}
+									return -1;
+								}
 							}
 						}
 
@@ -1175,6 +1268,7 @@ bool VitaGUI::setMessageBoxes(){
 					boxC.attachmentReadableSize = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.readableSize;
 					boxC.attachmentReadableSizeUnit = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.readableSizeUnit;
 					boxC.attachmentFilename = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.filename;
+					boxC.attachmentUrl = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.url;
 					boxC.attachmentFullText = std::to_string(  boxC.attachmentReadableSize ) + " " +  boxC.attachmentReadableSizeUnit + " " + boxC.attachmentFilename;
 					
 					// adjust box height !
@@ -1187,6 +1281,7 @@ bool VitaGUI::setMessageBoxes(){
 						boxC.attachmentReadableSize = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.readableSize;
 						boxC.attachmentReadableSizeUnit = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.readableSizeUnit;
 						boxC.attachmentFilename = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.filename;
+						boxC.attachmentUrl = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.url;
 						boxC.attachmentFullText = std::to_string(  boxC.attachmentReadableSize ) + " " +  boxC.attachmentReadableSizeUnit + " " + boxC.attachmentFilename;
 					
 						// adjust box height !

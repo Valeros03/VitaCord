@@ -40,6 +40,15 @@
 
 #define MAX_EMOJI 2500;
 
+class VitaGUI;
+
+struct DownloadImageArgs {
+	Discord* discordPtr;
+	std::string url;
+	std::string filename;
+	VitaGUI* guiPtr;
+};
+
 class VitaGUI{
 	public:
 		VitaGUI();
@@ -84,6 +93,15 @@ class VitaGUI{
 		
 		void setUserInfo();
 		
+		std::string downloadNotificationText = "";
+		int notificationTimer = 0;
+		bool showDownloadNotification = false;
+		std::unordered_map<std::string, bool> activeDownloads;
+		pthread_mutex_t downloadMutex = PTHREAD_MUTEX_INITIALIZER;
+		pthread_mutex_t uiNotificationMutex = PTHREAD_MUTEX_INITIALIZER;
+		static void* downloadImageWrapper(void* arg);
+		void downloadImageThread(DownloadImageArgs* args);
+
 		int emojiTestScrollX = 0;
 		int emojiTestScrollY = 0;
 		

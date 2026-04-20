@@ -335,9 +335,7 @@ VitaGUI::VitaGUI(){
 	
 }
 void VitaGUI::loadEmojiFiles(){
-	// EMOJI LOADER: .. OR NOT ^^ 
-	//emojis.clear();
-	//emojis.push_back(emoji_icon());
+
 }
 
 void* VitaGUI::downloadImageWrapper(void* arg) {
@@ -348,7 +346,7 @@ void* VitaGUI::downloadImageWrapper(void* arg) {
 }
 
 void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
-    std::string savePath = "ux0:picture/VitaCord/" + args->filename;
+    std::string savePath = "ux0:picture/vitacord/" + args->filename;
 
     // Check if file already exists
     struct SceIoStat stat;
@@ -367,8 +365,8 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
 
     // Create directory if missing
     struct SceIoStat dirStat;
-    if (sceIoGetstat("ux0:picture/VitaCord/", &dirStat) < 0) {
-        sceIoMkdir("ux0:picture/VitaCord/", 0777);
+    if (sceIoGetstat("ux0:picture/vitacord/", &dirStat) < 0) {
+        sceIoMkdir("ux0:picture/vitacord/", 0777);
     }
 
     // Use VitaNet to download
@@ -1317,18 +1315,20 @@ bool VitaGUI::setMessageBoxes(){
 
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
 			// 1. Pulisci le menzioni
+			// Cerca questo punto in VitaGUI::setMessageBoxes
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 
-			// 2. Word Wrap (Scommentalo e fallo lavorare prima degli URL. 45-50 è un buon limite per lo schermo della Vita)
-			boxC.lineCount = wordWrap(boxC.content, 45, boxC.content);
+			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
+			int numLines = wordWrap(boxC.content, 42, boxC.content);
 
-			// 3. Estrai gli URL dalla stringa già formattata! (Così gli indici coincidono)
-			boxC.urls = parseUrls(boxC.content);
-			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
-			textHeight = vita2d_font_text_height(vita2dFont[32] , 32 , (char*)boxC.content.c_str() );
-			// why not just use text_height() on the content?? :) 
-			//textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[15], 15, (char*)"H");
+			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
+			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
+			textHeight = numLines * (32 + 4); 
+
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
+
+			// 3. Solo ora calcola gli URL (sulla stringa già wrappata!)
+			boxC.urls = parseUrls(boxC.content);
 			
 			
 			boxC.w = 730;
@@ -1401,74 +1401,31 @@ bool VitaGUI::setMessageBoxes(){
 	return false;
 }
 
-
 int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
     out = "";
     if (str.empty()) return 0;
-
-    int lines = 1;
-    int currentLineLen = 0;
+    
+    std::string currentLine = "";
     std::string currentWord = "";
-    int currentWordLen = 0;
-    bool inUrl = false;
+    int lines = 1;
 
-    // Funzione interna (Lambda) per scaricare la parola accumulata
-    auto flushWord = [&]() {
-        if (currentWord.empty()) return;
-        
-        // Se la parola corrente ci fa sforare e non siamo a inizio riga, andiamo a capo
-        if (currentLineLen + currentWordLen > maxCharacters && currentLineLen > 0) {
-            out += "\n";
+    std::stringstream ss(str);
+    std::string word;
+
+    while (ss >> word) {
+        // Se la parola è un link, non la spezziamo mai
+        bool isUrl = (word.find("http") == 0);
+
+        if (!currentLine.empty() && (currentLine.length() + word.length() + 1 > maxCharacters) && !isUrl) {
+            out += currentLine + "\n";
+            currentLine = word;
             lines++;
-            currentLineLen = 0;
-        } else if (currentLineLen > 0) {
-            out += " "; // Mantiene lo spazio tra le parole
-            currentLineLen++;
+        } else {
+            if (!currentLine.empty()) currentLine += " ";
+            currentLine += word;
         }
-        
-        out += currentWord;
-        currentLineLen += currentWordLen;
-        
-        currentWord = "";
-        currentWordLen = 0;
-        inUrl = false;
-    };
-
-    for (size_t k = 0; k < str.length(); ) {
-        unsigned char c = (unsigned char)str[k];
-        size_t charLen = 1;
-
-        // Lunghezza UTF-8 sicura
-        if (c <= 0x7F) charLen = 1;
-        else if ((c & 0xE0) == 0xC0) charLen = 2;
-        else if ((c & 0xF0) == 0xE0) charLen = 3;
-        else if ((c & 0xF8) == 0xF0) charLen = 4;
-
-        std::string rawChar = str.substr(k, charLen);
-
-        // Identifica se stiamo leggendo un link per non spezzarlo
-        if (!inUrl && currentWord.empty() && str.length() - k >= 4 && str.substr(k, 4) == "http") {
-            inUrl = true;
-        }
-
-        if (c == '\n') {
-            flushWord();
-            out += "\n";
-            lines++;
-            currentLineLen = 0;
-        }
-        else if (c == ' ' || c == '\t') {
-            flushWord();
-        }
-        else {
-            currentWord += rawChar;
-            currentWordLen++; // Conta 1 carattere visivo (emoji compresa)
-        }
-
-        k += charLen;
     }
-    flushWord(); // Scarica l'ultima parola rimasta in canna
-
+    out += currentLine;
     return lines;
 }
 
@@ -1510,16 +1467,20 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
 			boxC.mentionsMap = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].mentionsMap;
-			// 1. Pulisci le menzioni
+			// Cerca questo punto in VitaGUI::setMessageBoxes
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 
-			// 2. Word Wrap (Scommentalo e fallo lavorare prima degli URL. 45-50 è un buon limite per lo schermo della Vita)
-			boxC.lineCount = wordWrap(boxC.content, 45, boxC.content);
+			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
+			int numLines = wordWrap(boxC.content, 42, boxC.content);
 
-			// 3. Estrai gli URL dalla stringa già formattata! (Così gli indici coincidono)
-			boxC.urls = parseUrls(boxC.content);
-			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
+			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
+			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
+			textHeight = numLines * (32 + 4); 
+
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
+
+			// 3. Solo ora calcola gli URL (sulla stringa già wrappata!)
+			boxC.urls = parseUrls(boxC.content);
 			allHeight += boxC.messageHeight;
 			
 			

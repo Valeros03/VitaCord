@@ -273,7 +273,6 @@ Discord::Discord(){
 
 				}
 
-				emojiTestArray.clear();
 				int loadedIconsChecked = 0;
 
 				debugNetPrintf(DEBUG, "> Loading big spritesheet !\n");
@@ -299,24 +298,16 @@ Discord::Discord(){
 								if(emojiJsonData["emoji"][e]["utf32code"].size() == 1){
 									if( !emojiJsonData["emoji"][e]["x"].is_null() ){
 									if( !emojiJsonData["emoji"][e]["y"].is_null() ){
-										debugNetPrintf(DEBUG, " Declare new emoji!\n");
 										emoji addEmoji;
-										debugNetPrintf(DEBUG, " assign emoji x\n");
 										addEmoji.x = emojiJsonData["emoji"][e]["x"].get<int>();
-										debugNetPrintf(DEBUG, " assign emoji y\n");
 										addEmoji.y = emojiJsonData["emoji"][e]["y"].get<int>();
-										debugNetPrintf(DEBUG, " assign code \n");
 										code = emojiJsonData["emoji"][e]["utf32code"][0].get<int>();
-										debugNetPrintf(DEBUG, " assign map key code's value to emoji\n");
 										emojiMap[code] = addEmoji;
-										debugNetPrintf(DEBUG, " push back code in testarray\n");
-										emojiTestArray.push_back(code);
 
 											EmojiData eData = { (uint32_t)code, addEmoji.x, addEmoji.y };
 											emojiVector.push_back(eData);
 											fastEmojiMap[(uint32_t)code] = emojiVector.size() - 1;
 
-										debugNetPrintf(DEBUG, " inc loadedIcons\n");
 										loadedIconsChecked++;
 									}
 								}
@@ -515,55 +506,39 @@ void Discord::utf16_to_utf8(uint16_t *src, uint8_t *dst) {
     return wlen;
 }*/
 
-void Discord::parseMessageContentEmoji(message *m , std::string str){
+std::string Discord::safeUtf8WordWrap(const std::string& rawContent, int maxCharsPerLine) {
+    std::string safeContent = "";
+    int visibleChars = 0;
 
+    for (size_t k = 0; k < rawContent.length(); ) {
+        uint8_t c = (uint8_t)rawContent[k];
+        size_t charLen = 1;
 
-	int currentLineY = 0;
-	m->emojis.clear();
-	std::vector<unsigned char> utf8result;
-	std::vector<unsigned int> utf32str;
-	utf8::utf8to32(str.begin(), str.end(), back_inserter(utf32str));
-	for(unsigned int x = 0 ; x < utf32str.size() ; x++){
-		emojiMapIterator = emojiMap.find( static_cast<int>(utf32str[x]) );
-		if(utf32str[x] > 0xFF){
-			// ignoring all <0xFF (ascii) for now until supporting emojis consisting of two emoji ( modifier )
-			
-			if(emojiMapIterator != emojiMap.end()){
-				
-				message_emoji mEmoji;
-				
-				mEmoji.codepoint = static_cast<int>(utf32str[x]);
-				mEmoji.spriteSheetX = emojiMapIterator->second.x;
-				mEmoji.spriteSheetY = emojiMapIterator->second.y;
-				mEmoji.posX = x % 40;  // HARDCODED max char per line = 30 :>
-				mEmoji.posY = currentLineY;
-				
-				m->emojis.push_back(mEmoji);
-				
-				
-				
-				utf32str[x] = 0x20;
-				
-			}else if(utf32str[x] >= 0x2139 && utf32str[x] <= 0x3299){
-				utf32str[x] = 0x20;
-			}else if(utf32str[x] >= 0x1F004 && utf32str[x] <= 0x1F9E6){
-				utf32str[x] = 0x20;
-				
-			}
-		}
-		
-		
-		
-		if(x % 39 == 0 && x != 0){
-			//utf32str.insert(utf32str.begin() + x , 0xA);
-			utf32str.insert( utf32str.begin() + x , 0xA);
-			currentLineY++;
-		}
-	}
+        // Riconosce la lunghezza del carattere UTF-8 per non spezzare le emoji
+        if (c <= 0x7F) charLen = 1;
+        else if ((c & 0xE0) == 0xC0) charLen = 2;
+        else if ((c & 0xF0) == 0xE0) charLen = 3;
+        else if ((c & 0xF8) == 0xF0) charLen = 4;
 
-	utf8::utf32to8(utf32str.begin(), utf32str.end(), back_inserter(utf8result));
-	
-	m->content = std::string( utf8result.begin() , utf8result.end() );
+        safeContent += rawContent.substr(k, charLen);
+        visibleChars++;
+
+        if (c == '\n') {
+            visibleChars = 0;
+        }
+        else if (visibleChars >= maxCharsPerLine) {
+            if (c == ' ') {
+                safeContent.back() = '\n'; // Sostituisce lo spazio con a capo
+            } else {
+                safeContent += "\n"; // Taglia e va a capo
+            }
+            visibleChars = 0;
+        }
+
+        k += charLen;
+    }
+
+    return safeContent;
 }
 
 void Discord::getChannelMessages(int channelIndex){
@@ -613,8 +588,7 @@ void Discord::getChannelMessages(int channelIndex){
 						//std::strcpy (content, str.c_str());
 						//char * contentUtf8 = new char [str.length()+1];
 						//utf16_to_utf8((uint16_t *)content , (uint8_t *) contentUtf8);
-						parseMessageContentEmoji(&newMessage , j_complete[iR]["content"].get<std::string>() );
-						//newMessage.content = j_complete[iR]["content"].get<std::string>();
+						newMessage.content = safeUtf8WordWrap(j_complete[iR]["content"].get<std::string>(), 40);
 					}else{
 						newMessage.content = "";
 					}

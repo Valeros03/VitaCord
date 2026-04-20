@@ -201,13 +201,12 @@ class Discord{
 		void getCurrentDirectMessages();
 		void *thread_loadData(void *arg);
 		void *thread_refreshMessages(void *arg);
+		std::string safeUtf8WordWrap(const std::string& rawContent, int maxCharsPerLine = 40);
 		
 		pthread_t loadMessagesThread;
 		bool pthreadStarted;
 		
 		std::stringstream stringStream;
-		
-		void parseMessageContentEmoji(message *m, std::string str);
 		
 		uint64_t lastFetchTimeMS;
 		uint64_t fetchTimeMS = 4000; // 4 seconds refreshing

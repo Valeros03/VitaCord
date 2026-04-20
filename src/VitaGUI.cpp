@@ -43,32 +43,51 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 	size_t i = 0;
 
 	while (i < text.length()) {
+
 		uint32_t codepoint = 0;
 		unsigned char c = (unsigned char)text[i];
 		size_t charLen = 1;
 
-		if (c <= 0x7F) { codepoint = c; }
-		else if ((c & 0xE0) == 0xC0) { codepoint = (c & 0x1F) << 6 | (text[i+1] & 0x3F); charLen = 2; }
-		else if ((c & 0xF0) == 0xE0) { codepoint = (c & 0x0F) << 12 | (text[i+1] & 0x3F) << 6 | (text[i+2] & 0x3F); charLen = 3; }
-		else if ((c & 0xF8) == 0xF0) { codepoint = (c & 0x07) << 18 | (text[i+1] & 0x3F) << 12 | (text[i+2] & 0x3F) << 6 | (text[i+3] & 0x3F); charLen = 4; }
-
+		if (c <= 0x7F) {
+			codepoint = c;
+		} 
+		else if ((c & 0xE0) == 0xC0 && i + 1 < text.length()) {
+			uint8_t c1 = (uint8_t)text[i+1];
+			codepoint = ((c & 0x1F) << 6) | (c1 & 0x3F);
+			charLen = 2;
+		} 
+		else if ((c & 0xF0) == 0xE0 && i + 2 < text.length()) {
+			uint8_t c1 = (uint8_t)text[i+1];
+			uint8_t c2 = (uint8_t)text[i+2];
+			codepoint = ((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F);
+			charLen = 3;
+		} 
+		else if ((c & 0xF8) == 0xF0 && i + 3 < text.length()) {
+			uint8_t c1 = (uint8_t)text[i+1];
+			uint8_t c2 = (uint8_t)text[i+2];
+			uint8_t c3 = (uint8_t)text[i+3];
+			codepoint = ((c & 0x07) << 18) | ((c1 & 0x3F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+			charLen = 4;
+		}
 		auto it = discordPtr->fastEmojiMap.find(codepoint);
+	
 		if (it != discordPtr->fastEmojiMap.end()) {
-			int itemWidth = 16 * 1.5f;
+			int itemWidth = 16 * 2.0f;
 			if (currentX + itemWidth > startX + maxWidth) {
 				currentX = startX;
 				currentY += size + 4;
 			}
-
 			Discord::EmojiData eData = discordPtr->emojiVector[it->second];
 			if (discordPtr->spritesheetEmoji != NULL) {
+				// Usiamo _scale al posto di quella normale
 				vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
-											   currentX, currentY - size + 4,
-											   eData.x * discordPtr->emojiWidth,
-											   eData.y * discordPtr->emojiHeight,
-											   discordPtr->emojiWidth,
-											   discordPtr->emojiHeight,
-											   1.5f, 1.5f);
+											currentX, currentY - size + 10, // Se l'emoji è troppo alta/bassa, puoi aggiustare questo +4
+											eData.x * discordPtr->emojiWidth,
+											eData.y * discordPtr->emojiHeight,
+											discordPtr->emojiWidth,
+											discordPtr->emojiHeight,
+											2.0f,   // Scala X (2x)
+											2.0f);  // Scala Y (2x)
 			}
 			currentX += itemWidth;
 		} else {
@@ -623,7 +642,7 @@ int VitaGUI::analogScrollRight(int x , int y){
 		messageScrollX = 0;
 		messageScrollY += y;
 
-		
+		if(messageScrollYMin > messageScrollYMax) messageScrollYMin = messageScrollYMax; // <--- AGGIUNGI QUESTA
 		if(messageScrollY < messageScrollYMin)
 			messageScrollY = messageScrollYMin;
 		else if(messageScrollY > messageScrollYMax )
@@ -633,7 +652,7 @@ int VitaGUI::analogScrollRight(int x , int y){
 		directMessageMessagesScrollX = 0;
 		directMessageMessagesScrollY += y;
 		
-		
+		if(directMessageScrollYMin > directMessageScrollYMax) directMessageScrollYMin = directMessageScrollYMax;
 		if(directMessageMessagesScrollY < directMessageMessagesScrollYMin)
 			directMessageMessagesScrollY = directMessageMessagesScrollYMin;
 		else if(directMessageMessagesScrollY > directMessageMessagesScrollYMax )
@@ -656,6 +675,8 @@ int VitaGUI::analogScrollLeft(int x , int y){
 	else if (state==2){
 		guildScrollX = 0;
 		guildScrollY += y;
+
+		if(guildScrollYMin > guildScrollYMax) guildScrollYMin = guildScrollYMax;
 		if(guildScrollY < guildScrollYMin)
 			guildScrollY = guildScrollYMin;
 		else if(guildScrollY > guildScrollYMax )
@@ -666,7 +687,7 @@ int VitaGUI::analogScrollLeft(int x , int y){
 		channelScrollX = 0;
 		channelScrollY += y;
 
-		
+		if(channelScrollYMin > channelScrollYMax) channelScrollYMin = channelScrollYMax;
 		if(channelScrollY < channelScrollYMin)
 			channelScrollY = channelScrollYMin;
 		else if(channelScrollY > channelScrollYMax )
@@ -675,7 +696,7 @@ int VitaGUI::analogScrollLeft(int x , int y){
 		channelScrollX = 0;
 		channelScrollY += y;
 		
-		
+		if(channelScrollYMin > channelScrollYMax) channelScrollYMin = channelScrollYMax;
 		if(channelScrollY < channelScrollYMin)
 			channelScrollY = channelScrollYMin;
 		else if(channelScrollY > channelScrollYMax )
@@ -685,6 +706,7 @@ int VitaGUI::analogScrollLeft(int x , int y){
 		directMessageScrollX = 0;
 		directMessageScrollY += y;
 		
+		if(directMessageScrollYMin > directMessageScrollYMax) directMessageScrollYMin = directMessageScrollYMax;
 		if(directMessageScrollY < directMessageScrollYMin)
 			directMessageScrollY = directMessageScrollYMin;
 		else if(directMessageScrollY > directMessageScrollYMax )
@@ -693,6 +715,8 @@ int VitaGUI::analogScrollLeft(int x , int y){
 	}else if(state == 7){
 		directMessageScrollX = 0;
 		directMessageScrollY += y;
+
+		if(directMessageScrollYMin > directMessageScrollYMax) directMessageScrollYMin = directMessageScrollYMax;
 		
 		if(directMessageScrollY < directMessageScrollYMin)
 			directMessageScrollY = directMessageScrollYMin;
@@ -1018,8 +1042,7 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.h = boxC.messageHeight;
 			
 			boxC.channelID = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].id;
-			boxC.messageID = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].id;
-			
+
 			// ATTACHMENTS
 			if( ! discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.isEmpty ){
 				if(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.isData ){

@@ -1319,7 +1319,8 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 
 			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
-			int numLines = wordWrap(boxC.content, 42, boxC.content);
+			// Usa 36 come limite di sicurezza. Questo impedirà a DrawTextWithEmojis di tagliare le parole a tradimento!
+			int numLines = wordWrap(boxC.content, 640, boxC.content);
 
 			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
 			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
@@ -1401,31 +1402,93 @@ bool VitaGUI::setMessageBoxes(){
 	return false;
 }
 
-int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
+int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string &out) {
     out = "";
     if (str.empty()) return 0;
-    
-    std::string currentLine = "";
-    std::string currentWord = "";
+
     int lines = 1;
+    int currentLineWidth = 0;
+    std::string currentWord = "";
+    bool inUrl = false;
+    
+    // Dimensione del font usato per i messaggi
+    int fontSize = 32;
 
-    std::stringstream ss(str);
-    std::string word;
+    auto flushWord = [&]() {
+        if (currentWord.empty()) return;
 
-    while (ss >> word) {
-        // Se la parola è un link, non la spezziamo mai
-        bool isUrl = (word.find("http") == 0);
-
-        if (!currentLine.empty() && (currentLine.length() + word.length() + 1 > maxCharacters) && !isUrl) {
-            out += currentLine + "\n";
-            currentLine = word;
-            lines++;
-        } else {
-            if (!currentLine.empty()) currentLine += " ";
-            currentLine += word;
+        // Calcoliamo la larghezza ESATTA in pixel della parola
+        int wordWidth = 0;
+        for (size_t j = 0; j < currentWord.length(); ) {
+            unsigned char cw = currentWord[j];
+            size_t charLen = 1;
+            if (cw <= 0x7F) charLen = 1;
+            else if ((cw & 0xE0) == 0xC0) charLen = 2;
+            else if ((cw & 0xF0) == 0xE0) charLen = 3;
+            else if ((cw & 0xF8) == 0xF0) charLen = 4;
+            
+            std::string rawChar = currentWord.substr(j, charLen);
+            
+            // Misuriamo il singolo carattere con la libreria nativa
+            int charW = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
+            
+            // Workaround per il bug della libreria: se è un'emoji (dà <=0 ma occupa byte), forziamo 32 pixel
+            if (charW <= 0 && charLen >= 3) {
+                charW = 32; // Corrisponde al 16 * 2.0f del tuo renderer
+            }
+            wordWidth += charW;
+            j += charLen;
         }
+
+        // Se la parola ci fa sforare i pixel dello schermo, ANDIAMO A CAPO prima di disegnarla!
+        if (currentLineWidth + wordWidth > maxWidthPixels && currentLineWidth > 0 && !inUrl) {
+            out += "\n";
+            lines++;
+            currentLineWidth = 0;
+        }
+        
+        out += currentWord;
+        currentLineWidth += wordWidth;
+        currentWord = "";
+        inUrl = false;
+    };
+
+    for (size_t k = 0; k < str.length(); ) {
+        unsigned char c = (unsigned char)str[k];
+        size_t charLen = 1;
+
+        if (c <= 0x7F) charLen = 1;
+        else if ((c & 0xE0) == 0xC0) charLen = 2;
+        else if ((c & 0xF0) == 0xE0) charLen = 3;
+        else if ((c & 0xF8) == 0xF0) charLen = 4;
+
+        std::string rawChar = str.substr(k, charLen);
+
+        if (!inUrl && currentWord.empty() && str.length() - k >= 4 && str.substr(k, 4) == "http") {
+            inUrl = true;
+        }
+
+        if (c == '\n') {
+            flushWord();
+            out += "\n";
+            lines++;
+            currentLineWidth = 0;
+        } 
+        else if (c == ' ' || c == '\t') {
+            flushWord();
+            out += rawChar;
+            // Aggiungiamo la larghezza dello spazio al conteggio totale
+            int spaceW = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
+            currentLineWidth += spaceW;
+        } 
+        else {
+            currentWord += rawChar;
+        }
+
+        k += charLen;
     }
-    out += currentLine;
+    flushWord(); 
+
     return lines;
 }
 
@@ -1471,7 +1534,8 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 
 			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
-			int numLines = wordWrap(boxC.content, 42, boxC.content);
+			// Usa 36 come limite di sicurezza. Questo impedirà a DrawTextWithEmojis di tagliare le parole a tradimento!
+			int numLines = wordWrap(boxC.content, 640, boxC.content);
 
 			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
 			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis

@@ -29,6 +29,18 @@ typedef struct{
 
 
 typedef struct{
+	float x,y,w,h;
+} click_rect;
+
+typedef struct{
+	std::string url;
+	int startIdx;
+	int endIdx;
+	std::vector<click_rect> boxes;
+} parsed_url;
+
+
+typedef struct{
 	int x;
 	int y;
 	int w;
@@ -67,6 +79,9 @@ typedef struct{
 	std::string attachmentFullText;
 
 	std::vector<m_emoji> emojis;
+
+	std::vector<parsed_url> urls;
+	click_rect attachmentBox;
 }messagebox;
 
 typedef struct{

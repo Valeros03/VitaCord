@@ -317,10 +317,14 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
     VitaNet net;
     VitaNet::http_response resp = net.curlDiscordDownloadImage(args->url, args->discordPtr->token, savePath);
 
+    int exportResult = -1;
+    if (resp.httpcode == 200 || resp.httpcode == 204) {
+        exportResult = scePhotoExportFromFile(savePath.c_str());
+    }
+
     pthread_mutex_lock(&uiNotificationMutex);
     if (resp.httpcode == 200 || resp.httpcode == 204) {
-        int result = scePhotoExportFromFile(savePath.c_str());
-        if (result >= 0) {
+        if (exportResult >= 0) {
              this->downloadNotificationText = "Salvato in Galleria";
         } else {
              this->downloadNotificationText = "Errore Galleria";

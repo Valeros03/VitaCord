@@ -13,6 +13,42 @@
 
 
 
+std::vector<parsed_url> parseUrls(const std::string& text) {
+	std::vector<parsed_url> urls;
+	size_t startPos = 0;
+
+	while (true) {
+		size_t httpPos = text.find("http://", startPos);
+		size_t httpsPos = text.find("https://", startPos);
+
+		size_t foundPos = std::string::npos;
+		if (httpPos != std::string::npos && httpsPos != std::string::npos) {
+			foundPos = min(httpPos, httpsPos);
+		} else if (httpPos != std::string::npos) {
+			foundPos = httpPos;
+		} else if (httpsPos != std::string::npos) {
+			foundPos = httpsPos;
+		} else {
+			break;
+		}
+
+		size_t endPos = text.find_first_of(" \t\n\r", foundPos);
+		if (endPos == std::string::npos) {
+			endPos = text.length();
+		}
+
+		parsed_url pUrl;
+		pUrl.url = text.substr(foundPos, endPos - foundPos);
+		pUrl.startIdx = foundPos;
+		pUrl.endIdx = endPos;
+		urls.push_back(pUrl);
+
+		startPos = endPos;
+	}
+
+	return urls;
+}
+
 std::string cleanMentions(std::string text, const std::unordered_map<std::string, std::string>& localMentions) {
 	size_t start = 0;
 	while ((start = text.find("<@", start)) != std::string::npos) {
@@ -36,7 +72,7 @@ std::string cleanMentions(std::string text, const std::unordered_map<std::string
 	return text;
 }
 
-void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth) {
+void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth, std::vector<parsed_url>* urls) {
 
 	int currentX = startX;
 	int currentY = startY;
@@ -70,6 +106,16 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 			charLen = 4;
 		}
 		auto it = discordPtr->fastEmojiMap.find(codepoint);
+
+		int activeUrlIndex = -1;
+		if (urls != nullptr) {
+			for (size_t u = 0; u < urls->size(); u++) {
+				if (i >= (*urls)[u].startIdx && i < (*urls)[u].endIdx) {
+					activeUrlIndex = u;
+					break;
+				}
+			}
+		}
 	
 		if (it != discordPtr->fastEmojiMap.end()) {
 			int itemWidth = 16 * 2.0f;
@@ -99,7 +145,39 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 				currentY += size + 4;
 			}
 
-			vita2d_font_draw_text(vita2dFont[size], currentX, currentY, RGBA8(255, 255, 255, 255), size, rawChar.c_str());
+			unsigned int charColor = RGBA8(255, 255, 255, 255);
+			if (activeUrlIndex != -1) {
+				charColor = RGBA8(0, 150, 255, 255); // Blue for URLs
+
+				// Expand the bounding box
+				if (urls != nullptr) {
+					parsed_url& purl = (*urls)[activeUrlIndex];
+					int fontHeight = vita2d_font_text_height(vita2dFont[size], size, rawChar.c_str());
+					int boxY = currentY - fontHeight; // Rough top-left Y estimate
+
+					// See if we can merge with the last box (same line)
+					if (purl.boxes.size() > 0 && abs(purl.boxes.back().y - boxY) < 10 && (currentX - (purl.boxes.back().x + purl.boxes.back().w)) < 10) {
+						purl.boxes.back().w += itemWidth;
+						purl.boxes.back().h = max((float)purl.boxes.back().h, (float)fontHeight);
+					} else {
+						// Create a new box
+						click_rect newBox;
+						newBox.x = currentX;
+						newBox.y = boxY;
+						newBox.w = itemWidth;
+						newBox.h = fontHeight;
+						purl.boxes.push_back(newBox);
+					}
+				}
+			}
+
+			vita2d_font_draw_text(vita2dFont[size], currentX, currentY, charColor, size, rawChar.c_str());
+
+			if (activeUrlIndex != -1 && charLen > 0) {
+				// We also add an underline
+				vita2d_draw_rectangle(currentX, currentY + 2, itemWidth, 1, charColor);
+			}
+
 			currentX += itemWidth;
 		}
 
@@ -823,6 +901,27 @@ int VitaGUI::click(int x , int y){
 				if( messageScrollX + x  > messageBoxes[i].x && messageScrollX + x  < messageBoxes[i].x + messageBoxes[i].w){
 					if( (-messageScrollY) + y  > messageBoxes[i].y && (-messageScrollY) + y  < messageBoxes[i].y + messageBoxes[i].h){
 						
+						// Check URLs
+						for (auto& url : messageBoxes[i].urls) {
+							for (auto& box : url.boxes) {
+								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
+									// TODO: Handle URL click
+									debugNetPrintf(DEBUG, "Clicked URL: %s\n", url.url.c_str());
+									return -1;
+								}
+							}
+						}
+
+						// Check Attachment
+						if (messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary) {
+							if (x > messageBoxes[i].attachmentBox.x && x < messageBoxes[i].attachmentBox.x + messageBoxes[i].attachmentBox.w &&
+								y > messageBoxes[i].attachmentBox.y && y < messageBoxes[i].attachmentBox.y + messageBoxes[i].attachmentBox.h) {
+								// TODO: Handle Attachment click
+								debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
+								return -1;
+							}
+						}
+
 						if( clickedMessage ){
 							debugNetPrintf(DEBUG , "un-clicked message\n");
 							clickedMessage = false;
@@ -900,6 +999,29 @@ int VitaGUI::click(int x , int y){
 
 		
 		// ? messages
+
+		if( y < 515  &&  y > 30 && x > 230){
+			for(unsigned int i = 0 ; i < directMessageMessagesBoxes.size() ; i++){
+				if( directMessageMessagesScrollX + x  > directMessageMessagesBoxes[i].x && directMessageMessagesScrollX + x  < directMessageMessagesBoxes[i].x + directMessageMessagesBoxes[i].w){
+					if( (-directMessageMessagesScrollY) + y  > directMessageMessagesBoxes[i].y && (-directMessageMessagesScrollY) + y  < directMessageMessagesBoxes[i].y + directMessageMessagesBoxes[i].h){
+
+						// Check URLs
+						for (auto& url : directMessageMessagesBoxes[i].urls) {
+							for (auto& box : url.boxes) {
+								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
+									// TODO: Handle URL click
+									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
+									return -1;
+								}
+							}
+						}
+
+						// DM attachment checking could go here if DMs have attachments populated like normal messages
+					}
+				}
+			}
+		}
+
 	}
 	return -1;
 }
@@ -1029,6 +1151,7 @@ bool VitaGUI::setMessageBoxes(){
 
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+			boxC.urls = parseUrls(boxC.content);
 			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
 			// wrapping in discord.cpp bcz of emoji :
 			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
@@ -1163,6 +1286,7 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.mentionsMap = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].mentionsMap;
 			std::string parsedContent = cleanMentions(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content, boxC.mentionsMap);
 			boxC.lineCount = wordWrap( parsedContent , 30 , boxC.content);
+			boxC.urls = parseUrls(boxC.content);
 			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
 			allHeight += boxC.messageHeight;
@@ -1290,12 +1414,26 @@ void VitaGUI::DrawMessages(){
 
 				vita2d_font_draw_text(vita2dFont[26], 283, yPos + 26, messageBoxes[i].userColor != 0 ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 26, messageBoxes[i].username.c_str());
 
-				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 60, 32, 650);
+				// Clear previous dynamic boxes before redraw
+				for (auto& url : messageBoxes[i].urls) {
+					url.boxes.clear();
+				}
+				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 60, 32, 650, &(messageBoxes[i].urls));
 				 
 			if( messageBoxes[i].showAttachmentAsImage ){
-				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📷 Immagine ]");
+				std::string attText = "[ 📷 Immagine ]";
+				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
+				messageBoxes[i].attachmentBox.x = 243;
+				messageBoxes[i].attachmentBox.y = yPos + height - 16 - vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
+				messageBoxes[i].attachmentBox.w = vita2d_font_text_width(vita2dFont[24], 24, attText.c_str());
+				messageBoxes[i].attachmentBox.h = vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
 			}else if( messageBoxes[i].showAttachmentAsBinary ){
-				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, "[ 📎 Allegato ]");
+				std::string attText = "[ 📎 Allegato ]";
+				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
+				messageBoxes[i].attachmentBox.x = 243;
+				messageBoxes[i].attachmentBox.y = yPos + height - 16 - vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
+				messageBoxes[i].attachmentBox.w = vita2d_font_text_width(vita2dFont[24], 24, attText.c_str());
+				messageBoxes[i].attachmentBox.h = vita2d_font_text_height(vita2dFont[24], 24, attText.c_str());
 			}
 
 			// DRAW EMOJIS:
@@ -1360,7 +1498,11 @@ void VitaGUI::DrawDirectMessageMessages(){
 			
 				vita2d_font_draw_text(vita2dFont[15], 243, yPos + 26, directMessageMessagesBoxes[i].userColor != 0 ? directMessageMessagesBoxes[i].userColor : RGBA8(255, 255, 255, 255), 15, directMessageMessagesBoxes[i].username.c_str());
 
-				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 60, 15, 650);
+				// Clear previous dynamic boxes before redraw
+				for (auto& url : directMessageMessagesBoxes[i].urls) {
+					url.boxes.clear();
+				}
+				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 60, 15, 650, &(directMessageMessagesBoxes[i].urls));
 
 			
 			// Not drawing default icons anymore.

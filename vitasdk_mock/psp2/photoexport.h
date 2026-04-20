@@ -1,0 +1,1 @@
+int scePhotoExportFromFile(const char*);

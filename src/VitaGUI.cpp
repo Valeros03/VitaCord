@@ -1388,18 +1388,54 @@ bool VitaGUI::setMessageBoxes(){
 
 
 int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
-	if(str.length() < maxCharacters ) {
+	if(str.length() <= maxCharacters) {
 		out = str;
-		return 1; 
-		
+		return 1;
 	}
 	out = "";
-	int breaks = str.length() / maxCharacters;
-	for(int i = 0 ; i < breaks+1; i++){
-		out += str.substr(i*maxCharacters, maxCharacters) + '\n';
+	int breaks = 1;
+	size_t start = 0;
+	while (start < str.length()) {
+		if (str.length() - start <= maxCharacters) {
+			out += str.substr(start);
+			break;
+		}
+
+		size_t limit = start + maxCharacters;
+		size_t space_idx = str.find_last_of(" \t\n", limit);
 		
+		if (space_idx == std::string::npos || space_idx < start) {
+			size_t next_space = str.find_first_of(" \t\n", start);
+			std::string word = (next_space != std::string::npos) ? str.substr(start, next_space - start) : str.substr(start);
+
+			if (word.find("http://") != std::string::npos || word.find("https://") != std::string::npos) {
+				int ui_lines = word.length() / maxCharacters;
+				breaks += ui_lines;
+
+				out += word;
+				if (next_space != std::string::npos) {
+					out += "\n";
+					start = next_space + 1;
+				} else {
+					start = str.length();
+				}
+				breaks++;
+				continue;
+			}
+
+			out += str.substr(start, maxCharacters) + "\n";
+			start += maxCharacters;
+			breaks++;
+		} else {
+			out += str.substr(start, space_idx - start) + "\n";
+			start = space_idx + 1;
+			breaks++;
+		}
 	}
-	
+	if (!out.empty() && out.back() == '\n' && str.back() != '\n') {
+	   out.pop_back();
+	   breaks--;
+	}
 	return breaks;
 }
 

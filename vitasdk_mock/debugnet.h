@@ -1,5 +1,2 @@
-#ifndef _DEBUGNET_H_
-#define _DEBUGNET_H_
+void debugNetPrintf(int, const char*, ...);
 #define DEBUG 1
-#define debugNetPrintf(...)
-#endif

@@ -7,6 +7,7 @@
 #include "Discord.hpp"
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <locale>
 
 #define MAX_DRAW_HEIGHT 550

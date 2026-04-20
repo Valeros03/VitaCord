@@ -1,11 +1,13 @@
 #include "VitaGUI.hpp"
 #include <pthread.h>
 #include <psp2/photoexport.h>
+#include <psp2/appmgr.h>
 #include "VitaNet.hpp"
 #include "log.hpp"
 #include <istream>
 #include <sstream>
 #include <iterator>
+#include <cctype>
 #include <psp2/io/dirent.h>
 #include <psp2/power.h>
 #include <psp2/rtc.h>
@@ -18,6 +20,14 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 
+bool endsWithCaseInsensitive(const std::string& mainStr, const std::string& toMatch) {
+    if (mainStr.size() < toMatch.size()) return false;
+    std::string mainStrSuffix = mainStr.substr(mainStr.size() - toMatch.size());
+    for (size_t i = 0; i < mainStrSuffix.size(); ++i) {
+        if (std::tolower(mainStrSuffix[i]) != std::tolower(toMatch[i])) return false;
+    }
+    return true;
+}
 
 std::vector<parsed_url> parseUrls(const std::string& text) {
 	std::vector<parsed_url> urls;
@@ -53,6 +63,43 @@ std::vector<parsed_url> parseUrls(const std::string& text) {
 	}
 
 	return urls;
+}
+
+void VitaGUI::handleUrlClick(const std::string& urlStr) {
+	if (endsWithCaseInsensitive(urlStr, ".png") ||
+		endsWithCaseInsensitive(urlStr, ".jpg") ||
+		endsWithCaseInsensitive(urlStr, ".jpeg") ||
+		endsWithCaseInsensitive(urlStr, ".webp") ||
+		endsWithCaseInsensitive(urlStr, ".gif")) {
+
+		std::string filename = urlStr.substr(urlStr.find_last_of("/") + 1);
+
+		pthread_mutex_lock(&downloadMutex);
+		if (activeDownloads.find(urlStr) == activeDownloads.end()) {
+			activeDownloads[urlStr] = true;
+			pthread_mutex_unlock(&downloadMutex);
+
+			DownloadImageArgs* args = new DownloadImageArgs();
+			args->discordPtr = this->discordPtr;
+			args->url = urlStr;
+			args->filename = filename;
+			args->guiPtr = this;
+
+			pthread_t downloadThread;
+			pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+			pthread_detach(downloadThread);
+
+			pthread_mutex_lock(&uiNotificationMutex);
+			this->downloadNotificationText = "Download in corso...";
+			this->showDownloadNotification = true;
+			this->notificationTimer = 180;
+			pthread_mutex_unlock(&uiNotificationMutex);
+		} else {
+			pthread_mutex_unlock(&downloadMutex);
+		}
+	} else {
+		sceAppMgrLaunchAppByUri(0x20000, urlStr.c_str());
+	}
 }
 
 std::string cleanMentions(std::string text, const std::unordered_map<std::string, std::string>& localMentions) {
@@ -988,8 +1035,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : messageBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
-									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked URL: %s\n", url.url.c_str());
+									handleUrlClick(url.url);
 									return -1;
 								}
 							}
@@ -1117,8 +1164,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : directMessageMessagesBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
-									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
+									handleUrlClick(url.url);
 									return -1;
 								}
 							}
@@ -1341,18 +1388,54 @@ bool VitaGUI::setMessageBoxes(){
 
 
 int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
-	if(str.length() < maxCharacters ) {
+	if(str.length() <= maxCharacters) {
 		out = str;
-		return 1; 
-		
+		return 1;
 	}
 	out = "";
-	int breaks = str.length() / maxCharacters;
-	for(int i = 0 ; i < breaks+1; i++){
-		out += str.substr(i*maxCharacters, maxCharacters) + '\n';
+	int breaks = 1;
+	size_t start = 0;
+	while (start < str.length()) {
+		if (str.length() - start <= maxCharacters) {
+			out += str.substr(start);
+			break;
+		}
+
+		size_t limit = start + maxCharacters;
+		size_t space_idx = str.find_last_of(" \t\n", limit);
 		
+		if (space_idx == std::string::npos || space_idx < start) {
+			size_t next_space = str.find_first_of(" \t\n", start);
+			std::string word = (next_space != std::string::npos) ? str.substr(start, next_space - start) : str.substr(start);
+
+			if (word.find("http://") != std::string::npos || word.find("https://") != std::string::npos) {
+				int ui_lines = word.length() / maxCharacters;
+				breaks += ui_lines;
+
+				out += word;
+				if (next_space != std::string::npos) {
+					out += "\n";
+					start = next_space + 1;
+				} else {
+					start = str.length();
+				}
+				breaks++;
+				continue;
+			}
+
+			out += str.substr(start, maxCharacters) + "\n";
+			start += maxCharacters;
+			breaks++;
+		} else {
+			out += str.substr(start, space_idx - start) + "\n";
+			start = space_idx + 1;
+			breaks++;
+		}
 	}
-	
+	if (!out.empty() && out.back() == '\n' && str.back() != '\n') {
+	   out.pop_back();
+	   breaks--;
+	}
 	return breaks;
 }
 

@@ -1,33 +1,20 @@
 #include "VitaGUI.hpp"
 #include <pthread.h>
 #include <psp2/photoexport.h>
-#include <psp2/appmgr.h>
 #include "VitaNet.hpp"
 #include "log.hpp"
 #include <istream>
 #include <sstream>
 #include <iterator>
-#include <cctype>
 #include <psp2/io/dirent.h>
 #include <psp2/power.h>
 #include <psp2/rtc.h>
-#include <psp2/io/stat.h>
-#include <psp2/io/fcntl.h>
-#include <psp2/io/dirent.h>
 #include <debugnet.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 
-bool endsWithCaseInsensitive(const std::string& mainStr, const std::string& toMatch) {
-    if (mainStr.size() < toMatch.size()) return false;
-    std::string mainStrSuffix = mainStr.substr(mainStr.size() - toMatch.size());
-    for (size_t i = 0; i < mainStrSuffix.size(); ++i) {
-        if (std::tolower(mainStrSuffix[i]) != std::tolower(toMatch[i])) return false;
-    }
-    return true;
-}
 
 std::vector<parsed_url> parseUrls(const std::string& text) {
 	std::vector<parsed_url> urls;
@@ -65,43 +52,6 @@ std::vector<parsed_url> parseUrls(const std::string& text) {
 	return urls;
 }
 
-void VitaGUI::handleUrlClick(const std::string& urlStr) {
-	if (endsWithCaseInsensitive(urlStr, ".png") ||
-		endsWithCaseInsensitive(urlStr, ".jpg") ||
-		endsWithCaseInsensitive(urlStr, ".jpeg") ||
-		endsWithCaseInsensitive(urlStr, ".webp") ||
-		endsWithCaseInsensitive(urlStr, ".gif")) {
-
-		std::string filename = urlStr.substr(urlStr.find_last_of("/") + 1);
-
-		pthread_mutex_lock(&downloadMutex);
-		if (activeDownloads.find(urlStr) == activeDownloads.end()) {
-			activeDownloads[urlStr] = true;
-			pthread_mutex_unlock(&downloadMutex);
-
-			DownloadImageArgs* args = new DownloadImageArgs();
-			args->discordPtr = this->discordPtr;
-			args->url = urlStr;
-			args->filename = filename;
-			args->guiPtr = this;
-
-			pthread_t downloadThread;
-			pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
-			pthread_detach(downloadThread);
-
-			pthread_mutex_lock(&uiNotificationMutex);
-			this->downloadNotificationText = "Download in corso...";
-			this->showDownloadNotification = true;
-			this->notificationTimer = 180;
-			pthread_mutex_unlock(&uiNotificationMutex);
-		} else {
-			pthread_mutex_unlock(&downloadMutex);
-		}
-	} else {
-		sceAppMgrLaunchAppByUri(0x20000, urlStr.c_str());
-	}
-}
-
 std::string cleanMentions(std::string text, const std::unordered_map<std::string, std::string>& localMentions) {
 	size_t start = 0;
 	while ((start = text.find("<@", start)) != std::string::npos) {
@@ -133,16 +83,8 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 
 	while (i < text.length()) {
 
-		
-		unsigned char c = (unsigned char)text[i];
-		
-		if (c == '\n') {
-			currentX = startX;
-			currentY += size + 4;
-			i++;
-			continue;
-		}
 		uint32_t codepoint = 0;
+		unsigned char c = (unsigned char)text[i];
 		size_t charLen = 1;
 
 		if (c <= 0x7F) {
@@ -373,23 +315,14 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
     VitaNet net;
     VitaNet::http_response resp = net.curlDiscordDownloadImage(args->url, args->discordPtr->token, savePath);
 
+    int exportResult = -1;
+    if (resp.httpcode == 200 || resp.httpcode == 204) {
+        exportResult = scePhotoExportFromFile(savePath.c_str());
+    }
+
     pthread_mutex_lock(&uiNotificationMutex);
     if (resp.httpcode == 200 || resp.httpcode == 204) {
-        // Creiamo un buffer dove il sistema scriverà il nuovo percorso nella Galleria
-        char exportedPath[256];
-
-        // Chiamata all'API con tutti i 7 argomenti richiesti
-        int result = scePhotoExportFromFile(
-            savePath.c_str(), // 1. Il percorso della tua immagine scaricata
-            nullptr,          // 2. PhotoExportParam (nullptr = usa parametri di default)
-            nullptr,          // 3. Memoria di lavoro (nullptr = alloca in automatico)
-            nullptr,          // 4. Callback di cancellazione (non ci serve)
-            nullptr,          // 5. User data (non ci serve)
-            exportedPath,     // 6. Buffer di output per il nuovo percorso
-            sizeof(exportedPath) // 7. Dimensione del buffer
-        );
-
-        if (result >= 0) {
+        if (exportResult >= 0) {
              this->downloadNotificationText = "Salvato in Galleria";
         } else {
              this->downloadNotificationText = "Errore Galleria";
@@ -1042,8 +975,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : messageBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
+									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked URL: %s\n", url.url.c_str());
-									handleUrlClick(url.url);
 									return -1;
 								}
 							}
@@ -1173,8 +1106,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : directMessageMessagesBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
+									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
-									handleUrlClick(url.url);
 									return -1;
 								}
 							}
@@ -1489,7 +1422,7 @@ int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string 
     }
     flushWord(); 
 
-    return lines;
+	return breaks;
 }
 
 
@@ -1676,20 +1609,27 @@ void VitaGUI::DrawMessages(){
 				}
 				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 60, 32, 650, &(messageBoxes[i].urls));
 				 
-			if( messageBoxes[i].showAttachmentAsImage ){
-				std::string attText = "[ 📷 Immagine ]";
-				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
-				messageBoxes[i].attachmentBox.x = 243;
-				messageBoxes[i].attachmentBox.y = yPos + height - 40;
-				messageBoxes[i].attachmentBox.w = 200;
-				messageBoxes[i].attachmentBox.h = 40;
-			}else if( messageBoxes[i].showAttachmentAsBinary ){
-				std::string attText = "[ 📎 Allegato ]";
-				vita2d_font_draw_text(vita2dFont[24], 243, yPos + height - 16, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
-				messageBoxes[i].attachmentBox.x = 243;
-				messageBoxes[i].attachmentBox.y = yPos + height - 40;
-				messageBoxes[i].attachmentBox.w = 200;
-				messageBoxes[i].attachmentBox.h = 40;
+			if( messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary ){
+				std::string attText = messageBoxes[i].showAttachmentAsImage ? "[ 📷 Immagine ]" : "[ 📎 Allegato ]";
+
+				// Draw button background and border
+				int btnX = 243;
+				int btnY = yPos + height - 50;
+				int btnW = 250;
+				int btnH = 45;
+
+				// Border
+				vita2d_draw_rectangle(btnX, btnY, btnW, btnH, RGBA8(62, 65, 70, 255));
+				// Background
+				vita2d_draw_rectangle(btnX + 1, btnY + 1, btnW - 2, btnH - 2, RGBA8(40, 43, 48, 255));
+
+				// Draw Text (Centered approximately)
+				vita2d_font_draw_text(vita2dFont[24], btnX + 10, btnY + 32, messageBoxes[i].userColor ? messageBoxes[i].userColor : RGBA8(255, 255, 255, 255), 24, attText.c_str());
+
+				messageBoxes[i].attachmentBox.x = btnX;
+				messageBoxes[i].attachmentBox.y = btnY;
+				messageBoxes[i].attachmentBox.w = btnW;
+				messageBoxes[i].attachmentBox.h = btnH;
 			}
 
 			// DRAW EMOJIS:

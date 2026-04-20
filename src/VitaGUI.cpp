@@ -9,6 +9,9 @@
 #include <psp2/io/dirent.h>
 #include <psp2/power.h>
 #include <psp2/rtc.h>
+#include <psp2/io/stat.h>
+#include <psp2/io/fcntl.h>
+#include <psp2/io/dirent.h>
 #include <debugnet.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -319,7 +322,19 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
 
     pthread_mutex_lock(&uiNotificationMutex);
     if (resp.httpcode == 200 || resp.httpcode == 204) {
-        int result = scePhotoExportFromFile(savePath.c_str());
+        // Creiamo un buffer dove il sistema scriverà il nuovo percorso nella Galleria
+		char exportedPath[256];
+
+		// Chiamata all'API con tutti i 7 argomenti richiesti
+		int result = scePhotoExportFromFile(
+			savePath.c_str(), // 1. Il percorso della tua immagine scaricata
+			nullptr,          // 2. PhotoExportParam (nullptr = usa parametri di default)
+			nullptr,          // 3. Memoria di lavoro (nullptr = alloca in automatico)
+			nullptr,          // 4. Callback di cancellazione (non ci serve)
+			nullptr,          // 5. User data (non ci serve)
+			exportedPath,     // 6. Buffer di output per il nuovo percorso
+			sizeof(exportedPath) // 7. Dimensione del buffer
+		);
         if (result >= 0) {
              this->downloadNotificationText = "Salvato in Galleria";
         } else {

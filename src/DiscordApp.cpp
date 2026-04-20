@@ -41,6 +41,7 @@ void DiscordApp::loadUserDataFromFile ( ) {
 			parserString = std::string( buffer , readbytes);
 			oldEnc = true;
 		}
+		free(buffer);
 	}
 	
 	logSD( "declare strings" );
@@ -170,12 +171,13 @@ void DiscordApp::Start(){
 										, "ux0:data/vitacord/attachments/thumbnails" , "ux0:data/vitacord/settings" };
 	
 	
+	struct SceIoStat * dirStat = (SceIoStat*)malloc(sizeof(SceIoStat));
 	for(int i = 0 ; i < 8 ; i++){
-		struct SceIoStat * dirStat = (SceIoStat*)malloc(sizeof(SceIoStat));
 		if(sceIoGetstat(directories[i].c_str() , dirStat) < 0){
 			sceIoMkdir(directories[i].c_str() , 0777);
 		}
 	}
+	free(dirStat);
 	
 	
 	logSD("load userdata file");

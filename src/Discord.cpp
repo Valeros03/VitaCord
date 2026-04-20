@@ -341,6 +341,8 @@ Discord::Discord(){
 
 
 	loadedGuilds = false;
+	loadedChannels = false;
+	loadedDMs = false;
 	loadingData = false;
 }
 

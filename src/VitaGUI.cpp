@@ -133,8 +133,16 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 
 	while (i < text.length()) {
 
-		uint32_t codepoint = 0;
+		
 		unsigned char c = (unsigned char)text[i];
+		
+		if (c == '\n') {
+			currentX = startX;
+			currentY += size + 4;
+			i++;
+			continue;
+		}
+		uint32_t codepoint = 0;
 		size_t charLen = 1;
 
 		if (c <= 0x7F) {
@@ -1305,10 +1313,14 @@ bool VitaGUI::setMessageBoxes(){
 			}
 
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
+			// 1. Pulisci le menzioni
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+
+			// 2. Word Wrap (Scommentalo e fallo lavorare prima degli URL. 45-50 è un buon limite per lo schermo della Vita)
+			boxC.lineCount = wordWrap(boxC.content, 45, boxC.content);
+
+			// 3. Estrai gli URL dalla stringa già formattata! (Così gli indici coincidono)
 			boxC.urls = parseUrls(boxC.content);
-			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
-			// wrapping in discord.cpp bcz of emoji :
 			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
 			textHeight = vita2d_font_text_height(vita2dFont[32] , 32 , (char*)boxC.content.c_str() );
 			// why not just use text_height() on the content?? :) 
@@ -1388,55 +1400,73 @@ bool VitaGUI::setMessageBoxes(){
 
 
 int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
-	if(str.length() <= maxCharacters) {
-		out = str;
-		return 1;
-	}
-	out = "";
-	int breaks = 1;
-	size_t start = 0;
-	while (start < str.length()) {
-		if (str.length() - start <= maxCharacters) {
-			out += str.substr(start);
-			break;
-		}
+    out = "";
+    if (str.empty()) return 0;
 
-		size_t limit = start + maxCharacters;
-		size_t space_idx = str.find_last_of(" \t\n", limit);
-		
-		if (space_idx == std::string::npos || space_idx < start) {
-			size_t next_space = str.find_first_of(" \t\n", start);
-			std::string word = (next_space != std::string::npos) ? str.substr(start, next_space - start) : str.substr(start);
+    int lines = 1;
+    int currentLineLen = 0;
+    std::string currentWord = "";
+    int currentWordLen = 0;
+    bool inUrl = false;
 
-			if (word.find("http://") != std::string::npos || word.find("https://") != std::string::npos) {
-				int ui_lines = word.length() / maxCharacters;
-				breaks += ui_lines;
+    // Funzione interna (Lambda) per scaricare la parola accumulata
+    auto flushWord = [&]() {
+        if (currentWord.empty()) return;
+        
+        // Se la parola corrente ci fa sforare e non siamo a inizio riga, andiamo a capo
+        if (currentLineLen + currentWordLen > maxCharacters && currentLineLen > 0) {
+            out += "\n";
+            lines++;
+            currentLineLen = 0;
+        } else if (currentLineLen > 0) {
+            out += " "; // Mantiene lo spazio tra le parole
+            currentLineLen++;
+        }
+        
+        out += currentWord;
+        currentLineLen += currentWordLen;
+        
+        currentWord = "";
+        currentWordLen = 0;
+        inUrl = false;
+    };
 
-				out += word;
-				if (next_space != std::string::npos) {
-					out += "\n";
-					start = next_space + 1;
-				} else {
-					start = str.length();
-				}
-				breaks++;
-				continue;
-			}
+    for (size_t k = 0; k < str.length(); ) {
+        unsigned char c = (unsigned char)str[k];
+        size_t charLen = 1;
 
-			out += str.substr(start, maxCharacters) + "\n";
-			start += maxCharacters;
-			breaks++;
-		} else {
-			out += str.substr(start, space_idx - start) + "\n";
-			start = space_idx + 1;
-			breaks++;
-		}
-	}
-	if (!out.empty() && out.back() == '\n' && str.back() != '\n') {
-	   out.pop_back();
-	   breaks--;
-	}
-	return breaks;
+        // Lunghezza UTF-8 sicura
+        if (c <= 0x7F) charLen = 1;
+        else if ((c & 0xE0) == 0xC0) charLen = 2;
+        else if ((c & 0xF0) == 0xE0) charLen = 3;
+        else if ((c & 0xF8) == 0xF0) charLen = 4;
+
+        std::string rawChar = str.substr(k, charLen);
+
+        // Identifica se stiamo leggendo un link per non spezzarlo
+        if (!inUrl && currentWord.empty() && str.length() - k >= 4 && str.substr(k, 4) == "http") {
+            inUrl = true;
+        }
+
+        if (c == '\n') {
+            flushWord();
+            out += "\n";
+            lines++;
+            currentLineLen = 0;
+        }
+        else if (c == ' ' || c == '\t') {
+            flushWord();
+        }
+        else {
+            currentWord += rawChar;
+            currentWordLen++; // Conta 1 carattere visivo (emoji compresa)
+        }
+
+        k += charLen;
+    }
+    flushWord(); // Scarica l'ultima parola rimasta in canna
+
+    return lines;
 }
 
 
@@ -1477,8 +1507,13 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
 			boxC.mentionsMap = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].mentionsMap;
-			std::string parsedContent = cleanMentions(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content, boxC.mentionsMap);
-			boxC.lineCount = wordWrap( parsedContent , 30 , boxC.content);
+			// 1. Pulisci le menzioni
+			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+
+			// 2. Word Wrap (Scommentalo e fallo lavorare prima degli URL. 45-50 è un buon limite per lo schermo della Vita)
+			boxC.lineCount = wordWrap(boxC.content, 45, boxC.content);
+
+			// 3. Estrai gli URL dalla stringa già formattata! (Così gli indici coincidono)
 			boxC.urls = parseUrls(boxC.content);
 			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);

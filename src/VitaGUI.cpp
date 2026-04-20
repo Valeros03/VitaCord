@@ -1,20 +1,33 @@
 #include "VitaGUI.hpp"
 #include <pthread.h>
 #include <psp2/photoexport.h>
+#include <psp2/appmgr.h>
 #include "VitaNet.hpp"
 #include "log.hpp"
 #include <istream>
 #include <sstream>
 #include <iterator>
+#include <cctype>
 #include <psp2/io/dirent.h>
 #include <psp2/power.h>
 #include <psp2/rtc.h>
+#include <psp2/io/stat.h>
+#include <psp2/io/fcntl.h>
+#include <psp2/io/dirent.h>
 #include <debugnet.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 
+bool endsWithCaseInsensitive(const std::string& mainStr, const std::string& toMatch) {
+    if (mainStr.size() < toMatch.size()) return false;
+    std::string mainStrSuffix = mainStr.substr(mainStr.size() - toMatch.size());
+    for (size_t i = 0; i < mainStrSuffix.size(); ++i) {
+        if (std::tolower(mainStrSuffix[i]) != std::tolower(toMatch[i])) return false;
+    }
+    return true;
+}
 
 std::vector<parsed_url> parseUrls(const std::string& text) {
 	std::vector<parsed_url> urls;
@@ -52,6 +65,43 @@ std::vector<parsed_url> parseUrls(const std::string& text) {
 	return urls;
 }
 
+void VitaGUI::handleUrlClick(const std::string& urlStr) {
+	if (endsWithCaseInsensitive(urlStr, ".png") ||
+		endsWithCaseInsensitive(urlStr, ".jpg") ||
+		endsWithCaseInsensitive(urlStr, ".jpeg") ||
+		endsWithCaseInsensitive(urlStr, ".webp") ||
+		endsWithCaseInsensitive(urlStr, ".gif")) {
+
+		std::string filename = urlStr.substr(urlStr.find_last_of("/") + 1);
+
+		pthread_mutex_lock(&downloadMutex);
+		if (activeDownloads.find(urlStr) == activeDownloads.end()) {
+			activeDownloads[urlStr] = true;
+			pthread_mutex_unlock(&downloadMutex);
+
+			DownloadImageArgs* args = new DownloadImageArgs();
+			args->discordPtr = this->discordPtr;
+			args->url = urlStr;
+			args->filename = filename;
+			args->guiPtr = this;
+
+			pthread_t downloadThread;
+			pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+			pthread_detach(downloadThread);
+
+			pthread_mutex_lock(&uiNotificationMutex);
+			this->downloadNotificationText = "Download in corso...";
+			this->showDownloadNotification = true;
+			this->notificationTimer = 180;
+			pthread_mutex_unlock(&uiNotificationMutex);
+		} else {
+			pthread_mutex_unlock(&downloadMutex);
+		}
+	} else {
+		sceAppMgrLaunchAppByUri(0x20000, urlStr.c_str());
+	}
+}
+
 std::string cleanMentions(std::string text, const std::unordered_map<std::string, std::string>& localMentions) {
 	size_t start = 0;
 	while ((start = text.find("<@", start)) != std::string::npos) {
@@ -83,8 +133,16 @@ void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int s
 
 	while (i < text.length()) {
 
-		uint32_t codepoint = 0;
+		
 		unsigned char c = (unsigned char)text[i];
+		
+		if (c == '\n') {
+			currentX = startX;
+			currentY += size + 4;
+			i++;
+			continue;
+		}
+		uint32_t codepoint = 0;
 		size_t charLen = 1;
 
 		if (c <= 0x7F) {
@@ -317,14 +375,23 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
     VitaNet net;
     VitaNet::http_response resp = net.curlDiscordDownloadImage(args->url, args->discordPtr->token, savePath);
 
-    int exportResult = -1;
-    if (resp.httpcode == 200 || resp.httpcode == 204) {
-        exportResult = scePhotoExportFromFile(savePath.c_str());
-    }
-
     pthread_mutex_lock(&uiNotificationMutex);
     if (resp.httpcode == 200 || resp.httpcode == 204) {
-        if (exportResult >= 0) {
+        // Creiamo un buffer dove il sistema scriverà il nuovo percorso nella Galleria
+        char exportedPath[256];
+
+        // Chiamata all'API con tutti i 7 argomenti richiesti
+        int result = scePhotoExportFromFile(
+            savePath.c_str(), // 1. Il percorso della tua immagine scaricata
+            nullptr,          // 2. PhotoExportParam (nullptr = usa parametri di default)
+            nullptr,          // 3. Memoria di lavoro (nullptr = alloca in automatico)
+            nullptr,          // 4. Callback di cancellazione (non ci serve)
+            nullptr,          // 5. User data (non ci serve)
+            exportedPath,     // 6. Buffer di output per il nuovo percorso
+            sizeof(exportedPath) // 7. Dimensione del buffer
+        );
+
+        if (result >= 0) {
              this->downloadNotificationText = "Salvato in Galleria";
         } else {
              this->downloadNotificationText = "Errore Galleria";
@@ -977,8 +1044,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : messageBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
-									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked URL: %s\n", url.url.c_str());
+									handleUrlClick(url.url);
 									return -1;
 								}
 							}
@@ -1108,8 +1175,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : directMessageMessagesBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
-									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
+									handleUrlClick(url.url);
 									return -1;
 								}
 							}
@@ -1249,10 +1316,14 @@ bool VitaGUI::setMessageBoxes(){
 			}
 
 			boxC.mentionsMap = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].mentionsMap;
+			// 1. Pulisci le menzioni
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+
+			// 2. Word Wrap (Scommentalo e fallo lavorare prima degli URL. 45-50 è un buon limite per lo schermo della Vita)
+			boxC.lineCount = wordWrap(boxC.content, 45, boxC.content);
+
+			// 3. Estrai gli URL dalla stringa già formattata! (Così gli indici coincidono)
 			boxC.urls = parseUrls(boxC.content);
-			//boxC.lineCount = wordWrap( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content , 30 , boxC.content);
-			// wrapping in discord.cpp bcz of emoji :
 			// which is more expensive on the cpu ? searching the whole string for newlines when wordwrapping or text_Height() ?
 			textHeight = vita2d_font_text_height(vita2dFont[32] , 32 , (char*)boxC.content.c_str() );
 			// why not just use text_height() on the content?? :) 
@@ -1332,19 +1403,73 @@ bool VitaGUI::setMessageBoxes(){
 
 
 int VitaGUI::wordWrap(std::string str, unsigned int maxCharacters, std::string &out) {
-	if(str.length() < maxCharacters ) {
-		out = str;
-		return 1; 
-		
-	}
-	out = "";
-	int breaks = str.length() / maxCharacters;
-	for(int i = 0 ; i < breaks+1; i++){
-		out += str.substr(i*maxCharacters, maxCharacters) + '\n';
-		
-	}
-	
-	return breaks;
+    out = "";
+    if (str.empty()) return 0;
+
+    int lines = 1;
+    int currentLineLen = 0;
+    std::string currentWord = "";
+    int currentWordLen = 0;
+    bool inUrl = false;
+
+    // Funzione interna (Lambda) per scaricare la parola accumulata
+    auto flushWord = [&]() {
+        if (currentWord.empty()) return;
+        
+        // Se la parola corrente ci fa sforare e non siamo a inizio riga, andiamo a capo
+        if (currentLineLen + currentWordLen > maxCharacters && currentLineLen > 0) {
+            out += "\n";
+            lines++;
+            currentLineLen = 0;
+        } else if (currentLineLen > 0) {
+            out += " "; // Mantiene lo spazio tra le parole
+            currentLineLen++;
+        }
+        
+        out += currentWord;
+        currentLineLen += currentWordLen;
+        
+        currentWord = "";
+        currentWordLen = 0;
+        inUrl = false;
+    };
+
+    for (size_t k = 0; k < str.length(); ) {
+        unsigned char c = (unsigned char)str[k];
+        size_t charLen = 1;
+
+        // Lunghezza UTF-8 sicura
+        if (c <= 0x7F) charLen = 1;
+        else if ((c & 0xE0) == 0xC0) charLen = 2;
+        else if ((c & 0xF0) == 0xE0) charLen = 3;
+        else if ((c & 0xF8) == 0xF0) charLen = 4;
+
+        std::string rawChar = str.substr(k, charLen);
+
+        // Identifica se stiamo leggendo un link per non spezzarlo
+        if (!inUrl && currentWord.empty() && str.length() - k >= 4 && str.substr(k, 4) == "http") {
+            inUrl = true;
+        }
+
+        if (c == '\n') {
+            flushWord();
+            out += "\n";
+            lines++;
+            currentLineLen = 0;
+        }
+        else if (c == ' ' || c == '\t') {
+            flushWord();
+        }
+        else {
+            currentWord += rawChar;
+            currentWordLen++; // Conta 1 carattere visivo (emoji compresa)
+        }
+
+        k += charLen;
+    }
+    flushWord(); // Scarica l'ultima parola rimasta in canna
+
+    return lines;
 }
 
 
@@ -1385,8 +1510,13 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
 			boxC.content = "";
 			boxC.mentionsMap = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].mentionsMap;
-			std::string parsedContent = cleanMentions(discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content, boxC.mentionsMap);
-			boxC.lineCount = wordWrap( parsedContent , 30 , boxC.content);
+			// 1. Pulisci le menzioni
+			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+
+			// 2. Word Wrap (Scommentalo e fallo lavorare prima degli URL. 45-50 è un buon limite per lo schermo della Vita)
+			boxC.lineCount = wordWrap(boxC.content, 45, boxC.content);
+
+			// 3. Estrai gli URL dalla stringa già formattata! (Così gli indici coincidono)
 			boxC.urls = parseUrls(boxC.content);
 			textHeight = boxC.lineCount * vita2d_font_text_height(vita2dFont[32], 32, (char*)"H");
 			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);

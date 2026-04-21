@@ -1,0 +1,11 @@
+--- src/VitaGUI.hpp
++++ src/VitaGUI.hpp
+@@ -57,7 +57,7 @@
+		int analogScrollLeft(int x , int y);
+		int analogScrollRight(int x , int y);
+
+-		int click(int x , int y);
++		int click(int x , int y, uint64_t duration = 0);
+
+		void AddRectangle(float nx , float ny , float nw , float nh , unsigned int ncolor);
+		void RemoveRectangle(unsigned int index);

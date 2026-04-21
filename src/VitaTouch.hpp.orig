@@ -24,14 +24,12 @@ class VitaTouch{
 		bool scrolling;
 		int scrollDirX ;
 		int scrollDirY;
-		uint64_t touchDownTime;
-		uint64_t touchDuration;
 
 	private:
 		void initTouch();
-		
+
 		vector2 emptyClickPoint;
-		
+
 };
 
 
@@ -42,6 +40,3 @@ class VitaTouch{
 
 
 #endif
-
-
-

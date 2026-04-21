@@ -1,0 +1,11 @@
+--- src/VitaGUI.cpp
++++ src/VitaGUI.cpp
+@@ -1081,7 +1081,7 @@
+						if( clickedMessage ){
+							debugNetPrintf(DEBUG , "un-clicked message\n");
+							clickedMessage = false;
+-						}else{
++						}else if (duration >= 2000000) {
+							debugNetPrintf(DEBUG , "clicked message : \n");
+							debugNetPrintf(DEBUG , messageBoxes[i].content.c_str());
+							debugNetPrintf(DEBUG , " \n");

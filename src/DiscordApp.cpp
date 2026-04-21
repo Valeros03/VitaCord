@@ -210,7 +210,7 @@ void DiscordApp::Start(){
 		
 		if(vitaTouch.clicking){
 			logSD("clicking check");
-			clicked = vitaGUI.click(vitaTouch.lastClickPoint.x , vitaTouch.lastClickPoint.y );
+			clicked = vitaGUI.click(vitaTouch.lastClickPoint.x , vitaTouch.lastClickPoint.y, vitaTouch.touchDuration);
 		}else{
 			clicked = -1;
 		}

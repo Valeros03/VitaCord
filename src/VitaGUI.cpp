@@ -8,8 +8,13 @@
 #include <iterator>
 #include <psp2/io/dirent.h>
 #include <psp2/power.h>
+#include <psp2/io/stat.h>
+#include <psp2/io/fcntl.h>
 #include <psp2/rtc.h>
 #include <debugnet.h>
+#include <psp2/kernel/processmgr.h>
+#include <malloc.h>
+#include <psp2/sysmodule.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -77,115 +82,117 @@ std::string cleanMentions(std::string text, const std::unordered_map<std::string
 
 void VitaGUI::DrawTextWithEmojis(std::string text, int startX, int startY, int size, int maxWidth, std::vector<parsed_url>* urls) {
 
-	int currentX = startX;
-	int currentY = startY;
-	size_t i = 0;
+    int currentX = startX;
+    int currentY = startY;
+    size_t i = 0;
 
-	while (i < text.length()) {
+    while (i < text.length()) {
 
-		uint32_t codepoint = 0;
-		unsigned char c = (unsigned char)text[i];
-		size_t charLen = 1;
+        unsigned char c = (unsigned char)text[i];
+        size_t charLen = 1;
 
-		if (c <= 0x7F) {
-			codepoint = c;
-		} 
-		else if ((c & 0xE0) == 0xC0 && i + 1 < text.length()) {
-			uint8_t c1 = (uint8_t)text[i+1];
-			codepoint = ((c & 0x1F) << 6) | (c1 & 0x3F);
-			charLen = 2;
-		} 
-		else if ((c & 0xF0) == 0xE0 && i + 2 < text.length()) {
-			uint8_t c1 = (uint8_t)text[i+1];
-			uint8_t c2 = (uint8_t)text[i+2];
-			codepoint = ((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F);
-			charLen = 3;
-		} 
-		else if ((c & 0xF8) == 0xF0 && i + 3 < text.length()) {
-			uint8_t c1 = (uint8_t)text[i+1];
-			uint8_t c2 = (uint8_t)text[i+2];
-			uint8_t c3 = (uint8_t)text[i+3];
-			codepoint = ((c & 0x07) << 18) | ((c1 & 0x3F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
-			charLen = 4;
-		}
-		auto it = discordPtr->fastEmojiMap.find(codepoint);
+        if (c == '\n') {
+            currentX = startX;
+            currentY += size + 4;
+            i++;
+            continue;
+        }
 
-		int activeUrlIndex = -1;
-		if (urls != nullptr) {
-			for (size_t u = 0; u < urls->size(); u++) {
-				if (i >= (*urls)[u].startIdx && i < (*urls)[u].endIdx) {
-					activeUrlIndex = u;
-					break;
-				}
-			}
-		}
-	
-		if (it != discordPtr->fastEmojiMap.end()) {
-			int itemWidth = 16 * 2.0f;
-			if (currentX + itemWidth > startX + maxWidth) {
-				currentX = startX;
-				currentY += size + 4;
-			}
-			Discord::EmojiData eData = discordPtr->emojiVector[it->second];
-			if (discordPtr->spritesheetEmoji != NULL) {
-				// Usiamo _scale al posto di quella normale
-				vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
-											currentX, currentY - size + 10, // Se l'emoji è troppo alta/bassa, puoi aggiustare questo +4
-											eData.x * discordPtr->emojiWidth,
-											eData.y * discordPtr->emojiHeight,
-											discordPtr->emojiWidth,
-											discordPtr->emojiHeight,
-											2.0f,   // Scala X (2x)
-											2.0f);  // Scala Y (2x)
-			}
-			currentX += itemWidth;
-		} else {
-			std::string rawChar = text.substr(i, charLen);
-			int itemWidth = vita2d_font_text_width(vita2dFont[size], size, rawChar.c_str());
+        uint32_t codepoint = 0;
+        if (c <= 0x7F) {
+            codepoint = c;
+        } 
+        else if ((c & 0xE0) == 0xC0 && i + 1 < text.length()) {
+            uint8_t c1 = (uint8_t)text[i+1];
+            codepoint = ((c & 0x1F) << 6) | (c1 & 0x3F);
+            charLen = 2;
+        } 
+        else if ((c & 0xF0) == 0xE0 && i + 2 < text.length()) {
+            uint8_t c1 = (uint8_t)text[i+1];
+            uint8_t c2 = (uint8_t)text[i+2];
+            codepoint = ((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F);
+            charLen = 3;
+        } 
+        else if ((c & 0xF8) == 0xF0 && i + 3 < text.length()) {
+            uint8_t c1 = (uint8_t)text[i+1];
+            uint8_t c2 = (uint8_t)text[i+2];
+            uint8_t c3 = (uint8_t)text[i+3];
+            codepoint = ((c & 0x07) << 18) | ((c1 & 0x3F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+            charLen = 4;
+        }
 
-			if (currentX + itemWidth > startX + maxWidth) {
-				currentX = startX;
-				currentY += size + 4;
-			}
+        auto it = discordPtr->fastEmojiMap.find(codepoint);
+        int activeUrlIndex = -1;
+        if (urls != nullptr) {
+            for (size_t u = 0; u < urls->size(); u++) {
+                if (i >= (*urls)[u].startIdx && i < (*urls)[u].endIdx) {
+                    activeUrlIndex = u;
+                    break;
+                }
+            }
+        }
+    
+        if (it != discordPtr->fastEmojiMap.end()) {
+            int itemWidth = 16 * 2.0f;
+            if (currentX + itemWidth > startX + maxWidth) {
+                currentX = startX;
+                currentY += size + 4;
+            }
+            Discord::EmojiData eData = discordPtr->emojiVector[it->second];
+            if (discordPtr->spritesheetEmoji != NULL) {
+                vita2d_draw_texture_part_scale(discordPtr->spritesheetEmoji,
+                                            currentX, currentY - size + 10,
+                                            eData.x * discordPtr->emojiWidth,
+                                            eData.y * discordPtr->emojiHeight,
+                                            discordPtr->emojiWidth,
+                                            discordPtr->emojiHeight,
+                                            2.0f, 2.0f);
+            }
+            currentX += itemWidth;
+        } else {
+            std::string rawChar = text.substr(i, charLen);
+            int itemWidth = vita2d_font_text_width(vita2dFont[size], size, rawChar.c_str());
 
-			unsigned int charColor = RGBA8(255, 255, 255, 255);
-			if (activeUrlIndex != -1) {
-				charColor = RGBA8(0, 150, 255, 255); // Blue for URLs
+            // La "Ghigliottina" (Ora funzionerà solo come estrema emergenza per parole lunghissime)
+            if (currentX + itemWidth > startX + maxWidth) {
+                currentX = startX;
+                currentY += size + 4;
+            }
 
-				// Expand the bounding box
-				if (urls != nullptr) {
-					parsed_url& purl = (*urls)[activeUrlIndex];
-					int fontHeight = vita2d_font_text_height(vita2dFont[size], size, rawChar.c_str());
-					int boxY = currentY - fontHeight; // Rough top-left Y estimate
+            unsigned int charColor = RGBA8(255, 255, 255, 255);
+            if (activeUrlIndex != -1) {
+                charColor = RGBA8(0, 150, 255, 255); // Blu per i link
 
-					// See if we can merge with the last box (same line)
-					if (purl.boxes.size() > 0 && abs(purl.boxes.back().y - boxY) < 10 && (currentX - (purl.boxes.back().x + purl.boxes.back().w)) < 10) {
-						purl.boxes.back().w += itemWidth;
-						purl.boxes.back().h = max((float)purl.boxes.back().h, (float)fontHeight);
-					} else {
-						// Create a new box
-						click_rect newBox;
-						newBox.x = currentX;
-						newBox.y = boxY;
-						newBox.w = itemWidth;
-						newBox.h = fontHeight;
-						purl.boxes.push_back(newBox);
-					}
-				}
-			}
+                if (urls != nullptr) {
+                    parsed_url& purl = (*urls)[activeUrlIndex];
+                    int fontHeight = vita2d_font_text_height(vita2dFont[size], size, rawChar.c_str());
+                    int boxY = currentY - fontHeight; 
 
-			vita2d_font_draw_text(vita2dFont[size], currentX, currentY, charColor, size, rawChar.c_str());
+                    if (purl.boxes.size() > 0 && abs(purl.boxes.back().y - boxY) < 10 && (currentX - (purl.boxes.back().x + purl.boxes.back().w)) < 10) {
+                        purl.boxes.back().w += itemWidth;
+                        purl.boxes.back().h = max((float)purl.boxes.back().h, (float)fontHeight);
+                    } else {
+                        click_rect newBox;
+                        newBox.x = currentX;
+                        newBox.y = boxY;
+                        newBox.w = itemWidth;
+                        newBox.h = fontHeight;
+                        purl.boxes.push_back(newBox);
+                    }
+                }
+            }
 
-			if (activeUrlIndex != -1 && charLen > 0) {
-				// We also add an underline
-				vita2d_draw_rectangle(currentX, currentY + 2, itemWidth, 1, charColor);
-			}
+            vita2d_font_draw_text(vita2dFont[size], currentX, currentY, charColor, size, rawChar.c_str());
 
-			currentX += itemWidth;
-		}
+            if (activeUrlIndex != -1 && charLen > 0) {
+                vita2d_draw_rectangle(currentX, currentY + 2, itemWidth, 1, charColor);
+            }
 
-		i += charLen;
-	}
+            currentX += itemWidth;
+        }
+
+        i += charLen;
+    }
 }
 
 VitaGUI::VitaGUI(){
@@ -281,64 +288,95 @@ void VitaGUI::loadEmojiFiles(){
 }
 
 void* VitaGUI::downloadImageWrapper(void* arg) {
+    debugNetPrintf(DEBUG, "[WRAPPER] Avviato. Puntatore arg: %p\n", arg);
+    
     DownloadImageArgs* args = reinterpret_cast<DownloadImageArgs*>(arg);
+    debugNetPrintf(DEBUG, "[WRAPPER] Cast completato. Chiamo downloadImageThread...\n");
+    
     args->guiPtr->downloadImageThread(args);
-    delete args;
+    
+    debugNetPrintf(DEBUG, "[WRAPPER] Ritorno da downloadImageThread. Il thread sta per morire.\n");
     return nullptr;
 }
 
 void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
-    std::string savePath = "ux0:picture/vitacord/" + args->filename;
-
-    // Check if file already exists
-    struct SceIoStat stat;
-    if (sceIoGetstat(savePath.c_str(), &stat) >= 0) {
-        debugNetPrintf(DEBUG, "File %s already exists. Skipping download.\n", savePath.c_str());
-        pthread_mutex_lock(&uiNotificationMutex);
-        this->downloadNotificationText = "File gia' in Galleria";
-        this->showDownloadNotification = true;
-        this->notificationTimer = 180;
-        pthread_mutex_unlock(&uiNotificationMutex);
-        pthread_mutex_lock(&downloadMutex);
-        activeDownloads.erase(args->url);
-        pthread_mutex_unlock(&downloadMutex);
+    if (args == nullptr || args->filename.length() < 4) {
+        if (args != nullptr) delete args;
         return;
     }
 
-    // Create directory if missing
-    struct SceIoStat dirStat;
-    if (sceIoGetstat("ux0:picture/vitacord/", &dirStat) < 0) {
-        sceIoMkdir("ux0:picture/vitacord/", 0777);
+    std::string safeName = args->filename;
+    for(auto &c : safeName) if(c == '?' || c == '&' || c == '=' || c == '/') c = '_';
+    
+    std::string tempPath = "ux0:data/" + safeName;
+
+    // --- IL TRUCCO MAGICO PER LA GALLERIA ---
+    // Chiediamo esplicitamente a Discord di transcodificare l'immagine 
+    // in un JPEG standard, togliendo metadati strani o formati WebP mascherati.
+    std::string downloadUrl = args->url;
+    if (downloadUrl.find('?') != std::string::npos) {
+        downloadUrl += "&format=jpeg";
+    } else {
+        downloadUrl += "?format=jpeg";
     }
 
-    // Use VitaNet to download
-    VitaNet net;
-    VitaNet::http_response resp = net.curlDiscordDownloadImage(args->url, args->discordPtr->token, savePath);
+    // 1. DOWNLOAD IN DATA (usando l'URL transcodificato)
+    pthread_mutex_lock(&Discord::networkMutex);
+    VitaNet::http_response resp = args->discordPtr->vitaNet.curlDiscordDownloadImage(downloadUrl, args->discordPtr->token, tempPath);
+    pthread_mutex_unlock(&Discord::networkMutex);
 
-    int exportResult = -1;
     if (resp.httpcode == 200 || resp.httpcode == 204) {
-        exportResult = scePhotoExportFromFile(savePath.c_str());
-    }
+        
+        sceIoSync("ux0:", 0);
+        sceKernelDelayThread(100 * 1000); 
 
-    pthread_mutex_lock(&uiNotificationMutex);
-    if (resp.httpcode == 200 || resp.httpcode == 204) {
-        if (exportResult >= 0) {
-             this->downloadNotificationText = "Salvato in Galleria";
-        } else {
-             this->downloadNotificationText = "Errore Galleria";
+        PhotoExportParam param;
+        memset(&param, 0, sizeof(PhotoExportParam));
+        char outPath[1024]; 
+        memset(outPath, 0, sizeof(outPath));
+
+        void* working_mem = memalign(4096, 512 * 1024); 
+
+        if (working_mem) {
+            
+            // LA CHIAVE DI TUTTO: CARICHIAMO IL MODULO IN RAM!
+            sceSysmoduleLoadModule(SCE_SYSMODULE_PHOTO_EXPORT);
+            
+            // Ora la funzione esiste in memoria e non salterà nel vuoto
+            int res = scePhotoExportFromFile(tempPath.c_str(), &param, working_mem, nullptr, nullptr, outPath, sizeof(outPath));
+            
+            // SPEGNIAMO IL MODULO PER LIBERARE RAM
+            sceSysmoduleUnloadModule(SCE_SYSMODULE_PHOTO_EXPORT);
+
+            pthread_mutex_lock(&uiNotificationMutex);
+            if (res >= 0) {
+                this->downloadNotificationText = "Aggiunto in Galleria!";
+            } else {
+                this->downloadNotificationText = "Errore API Sony: " + std::to_string(res);
+            }
+            this->showDownloadNotification = true;
+            this->notificationTimer = 180;
+            pthread_mutex_unlock(&uiNotificationMutex);
+
+            free(working_mem);
         }
     } else {
-         this->downloadNotificationText = "Errore Download";
+        pthread_mutex_lock(&uiNotificationMutex);
+        this->downloadNotificationText = "Errore Download: " + std::to_string(resp.httpcode);
+        this->showDownloadNotification = true;
+        this->notificationTimer = 180;
+        pthread_mutex_unlock(&uiNotificationMutex);
     }
 
-    this->showDownloadNotification = true;
-    this->notificationTimer = 180;
-    pthread_mutex_unlock(&uiNotificationMutex);
+    // PULIZIA FINALE
+    std::string originalUrl = args->url; // Usiamo l'url originale per rimuoverlo dalla mappa
+    delete args;
 
     pthread_mutex_lock(&downloadMutex);
-    activeDownloads.erase(args->url);
+    activeDownloads.erase(originalUrl);
     pthread_mutex_unlock(&downloadMutex);
 }
+
 
 VitaGUI::~VitaGUI(){
 	vita2d_fini();
@@ -409,7 +447,7 @@ unsigned int testFrames = 0;
 void VitaGUI::Draw(){
 	
 	//COMMENT debugNetPrintf(DEBUG, "Draw()\n");
-	
+
 	if(state == 2){
 		
 		//COMMENT debugNetPrintf(DEBUG, "Call SetGuildBoxes()\n");
@@ -987,6 +1025,29 @@ int VitaGUI::click(int x , int y){
 							if (x > messageBoxes[i].attachmentBox.x && x < messageBoxes[i].attachmentBox.x + messageBoxes[i].attachmentBox.w &&
 								y > messageBoxes[i].attachmentBox.y && y < messageBoxes[i].attachmentBox.y + messageBoxes[i].attachmentBox.h) {
 								if (messageBoxes[i].attachmentUrl != "") {
+
+									// =================================================================
+									// 🛡️ FIREWALL: VALIDAZIONE URL ED ERROR HANDLING
+									// =================================================================
+									std::string targetUrl = messageBoxes[i].attachmentUrl;
+									
+									// Controlla se l'URL è troppo corto o non è un link http/https valido
+									if (targetUrl.length() < 4 || (targetUrl.substr(0, 4) != "http" && targetUrl.substr(0, 4) != "HTTP")) {
+										
+										// Logghiamo l'errore in console
+										debugNetPrintf(DEBUG, "[FIREWALL] CRASH EVITATO! URL malformato: '%s'\n", targetUrl.c_str());
+										
+										// Notifichiamo l'utente visivamente
+										pthread_mutex_lock(&uiNotificationMutex);
+										this->downloadNotificationText = "Errore: URL Allegato Non Valido";
+										this->showDownloadNotification = true;
+										this->notificationTimer = 180;
+										pthread_mutex_unlock(&uiNotificationMutex);
+										
+										return -1; // INTERROMPE IL CLICK: Niente thread = niente crash
+									}
+									// =================================================================
+
 									if (messageBoxes[i].showAttachmentAsImage) {
 										debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
 
@@ -1001,8 +1062,17 @@ int VitaGUI::click(int x , int y){
 											args->filename = messageBoxes[i].attachmentFilename;
 											args->guiPtr = this;
 
+											// === FIX DEL CRASH (Aumentiamo lo stack del thread!) ===
 											pthread_t downloadThread;
-											pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+											pthread_attr_t attr;
+											pthread_attr_init(&attr);
+											
+											// Diamo 256 KB di memoria al thread (fondamentale per cURL/SSL)
+											pthread_attr_setstacksize(&attr, 2 * 1024 * 1024); 
+											
+											pthread_create(&downloadThread, &attr, &VitaGUI::downloadImageWrapper, args);
+											
+											pthread_attr_destroy(&attr); // Puliamo l'attributo
 											pthread_detach(downloadThread);
 
 											pthread_mutex_lock(&uiNotificationMutex);
@@ -1242,7 +1312,6 @@ bool VitaGUI::setMessageBoxes(){
 
 			// Resolve dynamically in case roles fetched after messages
 			if(boxC.userColor == 0) {
-				int highest_pos = -1;
 				boxC.userColor = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].author.color;
 			}
 
@@ -1250,23 +1319,15 @@ bool VitaGUI::setMessageBoxes(){
 			// 1. Pulisci le menzioni
 			// Cerca questo punto in VitaGUI::setMessageBoxes
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+			boxC.mentionsMap.clear();
 
-			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
-			// Usa 36 come limite di sicurezza. Questo impedirà a DrawTextWithEmojis di tagliare le parole a tradimento!
-			int numLines = wordWrap(boxC.content, 640, boxC.content);
-
-			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
-			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
-			textHeight = numLines * (32 + 4); 
-
-			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
-
-			// 3. Solo ora calcola gli URL (sulla stringa già wrappata!)
+        // 1. Esegui il wordWrap intelligente (usiamo 640 pixel di maxWidth)
+        	int numLines = wordWrap(boxC.content, 640, boxC.content); 
+			textHeight = numLines * (32 + 4) + topMargin + bottomMargin; 
+        
+        	boxC.messageHeight = max(64, textHeight); // 64 è l'altezza minima per i messaggi con poco testo, per evitare che siano troppo piccoli
 			boxC.urls = parseUrls(boxC.content);
 			
-			
-			boxC.w = 730;
-			boxC.h = boxC.messageHeight;
 			
 			boxC.channelID = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].id;
 
@@ -1283,7 +1344,7 @@ bool VitaGUI::setMessageBoxes(){
 					boxC.attachmentFullText = std::to_string(  boxC.attachmentReadableSize ) + " " +  boxC.attachmentReadableSizeUnit + " " + boxC.attachmentFilename;
 					
 					// adjust box height !
-					boxC.messageHeight += 30; // 16 = margin
+					boxC.messageHeight += 60; // 16 = margin
 				}else if ( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.isImage ){
 					if( discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].attachment.loadedThumbImage ){
 						boxC.showAttachmentAsImage = true;
@@ -1296,7 +1357,7 @@ bool VitaGUI::setMessageBoxes(){
 						boxC.attachmentFullText = std::to_string(  boxC.attachmentReadableSize ) + " " +  boxC.attachmentReadableSizeUnit + " " + boxC.attachmentFilename;
 					
 						// adjust box height !
-						boxC.messageHeight += 30;
+						boxC.messageHeight += 60;
 					}
 				}else{
 					boxC.showAttachmentAsImage = false;
@@ -1306,7 +1367,8 @@ bool VitaGUI::setMessageBoxes(){
 				boxC.showAttachmentAsImage = false;
 				boxC.showAttachmentAsBinary = false;
 			}
-			
+			boxC.w = 730;
+			boxC.h = boxC.messageHeight;
 			
 			// EMOJIS:
 			boxC.emojis.clear();
@@ -1339,18 +1401,15 @@ int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string 
     out = "";
     if (str.empty()) return 0;
 
-    int lines = 1;
     int currentLineWidth = 0;
     std::string currentWord = "";
     bool inUrl = false;
-    
-    // Dimensione del font usato per i messaggi
     int fontSize = 32;
 
+    // === FASE 1: FORMATTAZIONE (Protegge i link, manda a capo le parole) ===
     auto flushWord = [&]() {
         if (currentWord.empty()) return;
 
-        // Calcoliamo la larghezza ESATTA in pixel della parola
         int wordWidth = 0;
         for (size_t j = 0; j < currentWord.length(); ) {
             unsigned char cw = currentWord[j];
@@ -1361,22 +1420,18 @@ int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string 
             else if ((cw & 0xF8) == 0xF0) charLen = 4;
             
             std::string rawChar = currentWord.substr(j, charLen);
-            
-            // Misuriamo il singolo carattere con la libreria nativa
             int charW = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
             
-            // Workaround per il bug della libreria: se è un'emoji (dà <=0 ma occupa byte), forziamo 32 pixel
-            if (charW <= 0 && charLen >= 3) {
-                charW = 32; // Corrisponde al 16 * 2.0f del tuo renderer
-            }
+            // Stima l'ingombro delle emoji se la libreria fallisce
+            if (charW <= 0 && charLen >= 3) charW = 32; 
+            
             wordWidth += charW;
             j += charLen;
         }
 
-        // Se la parola ci fa sforare i pixel dello schermo, ANDIAMO A CAPO prima di disegnarla!
+        // Manda a capo SOLO se NON è un link
         if (currentLineWidth + wordWidth > maxWidthPixels && currentLineWidth > 0 && !inUrl) {
             out += "\n";
-            lines++;
             currentLineWidth = 0;
         }
         
@@ -1397,6 +1452,7 @@ int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string 
 
         std::string rawChar = str.substr(k, charLen);
 
+        // Identifica se siamo dentro un link
         if (!inUrl && currentWord.empty() && str.length() - k >= 4 && str.substr(k, 4) == "http") {
             inUrl = true;
         }
@@ -1404,25 +1460,59 @@ int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string 
         if (c == '\n') {
             flushWord();
             out += "\n";
-            lines++;
             currentLineWidth = 0;
         } 
         else if (c == ' ' || c == '\t') {
             flushWord();
             out += rawChar;
-            // Aggiungiamo la larghezza dello spazio al conteggio totale
             int spaceW = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
             currentLineWidth += spaceW;
         } 
         else {
             currentWord += rawChar;
         }
-
         k += charLen;
     }
     flushWord(); 
 
-	return breaks;
+    // === FASE 2: SIMULATORE DI SCHERMO ===
+    // Ora leggiamo la stringa finale esattamente come farà DrawTextWithEmojis
+    // e contiamo i "tagli" forzati per sapere il NUMERO REALE di righe.
+    
+    int visualLines = 1;
+    int currentX = 0;
+
+    for (size_t i = 0; i < out.length(); ) {
+        unsigned char c = (unsigned char)out[i];
+        size_t charLen = 1;
+        
+        if (c == '\n') {
+            currentX = 0;
+            visualLines++;
+            i++;
+            continue;
+        }
+
+        if (c <= 0x7F) charLen = 1;
+        else if ((c & 0xE0) == 0xC0) charLen = 2;
+        else if ((c & 0xF0) == 0xE0) charLen = 3;
+        else if ((c & 0xF8) == 0xF0) charLen = 4;
+
+        std::string rawChar = out.substr(i, charLen);
+        int itemWidth = vita2d_font_text_width(vita2dFont[fontSize], fontSize, rawChar.c_str());
+        if (itemWidth <= 0 && charLen >= 3) itemWidth = 32;
+
+        // Se una lettera fa sbordare (es. un link lunghissimo), DrawTextWithEmojis la manderà a capo.
+        // Noi facciamo lo stesso conto in anticipo!
+        if (currentX + itemWidth > maxWidthPixels) {
+            currentX = 0;
+            visualLines++;
+        }
+        currentX += itemWidth;
+        i += charLen;
+    }
+
+    return visualLines; // Ritorna le righe ESATTE per calcolare l'altezza!
 }
 
 
@@ -1461,31 +1551,29 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.y = directMessageMessagesScrollY + allHeight;
 			boxC.username = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.username;
 			boxC.userColor = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].author.color;
-			boxC.content = "";
+			
 			boxC.mentionsMap = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].mentionsMap;
-			// Cerca questo punto in VitaGUI::setMessageBoxes
-			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
+			
+			// 1. Pulisci le menzioni (CORREZIONE: Leggiamo da directMessages, NON da guilds!)
+			std::string rawContent = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].content;
+			boxC.content = cleanMentions(rawContent, boxC.mentionsMap);
+			boxC.mentionsMap.clear();
 
-			// 1. Esegui il wordWrap (usa circa 40-45 come limite per la PS Vita)
-			// Usa 36 come limite di sicurezza. Questo impedirà a DrawTextWithEmojis di tagliare le parole a tradimento!
+			// 2. Esegui il wordWrap intelligente in pixel
 			int numLines = wordWrap(boxC.content, 640, boxC.content);
 
-			// 2. Calcola l'altezza manualmente (font size + i tuoi 4 pixel di interlinea)
-			// Usiamo 32 che è la dimensione del font che passi a DrawTextWithEmojis
-			textHeight = numLines * (32 + 4); 
+			// 3. Calcola l'altezza matematicamente
+			textHeight = numLines * (32 + 4) + topMargin + bottomMargin; 
+			boxC.messageHeight = max(64, textHeight);
 
-			boxC.messageHeight = max(64, textHeight + topMargin + bottomMargin);
-
-			// 3. Solo ora calcola gli URL (sulla stringa già wrappata!)
+			// 4. Solo ora calcola gli URL
 			boxC.urls = parseUrls(boxC.content);
-			allHeight += boxC.messageHeight;
 			
-			
-			
+			// 5. Assegna larghezza e altezza finali al box
 			boxC.w = 730;
 			boxC.h = boxC.messageHeight;
-			
-			
+
+			allHeight += boxC.messageHeight;
 			directMessageMessagesBoxes.push_back(boxC);
 		}
 		directMessageMessagesScrollYMin =  -( allHeight - 100  ); //-( allHeight )

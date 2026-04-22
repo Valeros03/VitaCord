@@ -47,6 +47,7 @@ struct DownloadImageArgs {
 	Discord* discordPtr;
 	std::string url;
 	std::string filename;
+	std::string attachmentId;
 	VitaGUI* guiPtr;
 };
 

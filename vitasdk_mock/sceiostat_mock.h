@@ -1,1 +1,0 @@
-struct SceIoStat { int placeholder; };

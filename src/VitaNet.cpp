@@ -1,7 +1,7 @@
 #include "VitaNet.hpp"
 #include "log.hpp"
 #include <psp2/io/fcntl.h> 
-
+#include <debugnet.h>
 
 VitaNet::VitaNet(){
 	init();
@@ -87,16 +87,8 @@ std::string authorizationHeader = "Authorization: " + authtoken;
 		resp.header = std::string(header.ptr , header.len);
 		resp.body = std::string(body.ptr , body.len);
 		
-		if(res != CURLE_OK){
-			//fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-
-			
-		}else{
-			
-		}
-		
-		
-	}else{
+	free(header.ptr);
+	free(body.ptr);
 		
 	}
 	curl_easy_cleanup(curl);
@@ -151,20 +143,13 @@ std::string authorizationHeader = "Authorization: " + authtoken;
 		resp.header = std::string(header.ptr , header.len);
 		resp.body = std::string(body.ptr , body.len);
 		
-		if(res != CURLE_OK){
-			//fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-
-			
-		}else{
-			
-		}
+			free(header.ptr);
+			free(body.ptr);
 		
-		
-	}else{
 		
 	}
 	curl_easy_cleanup(curl);
-	
+
 	return resp;
 }
 
@@ -219,16 +204,8 @@ std::string authorizationHeader = "Authorization: " + authtoken;
 		resp.header = std::string(header.ptr , header.len);
 		resp.body = std::string(body.ptr , body.len);
 		
-		if(res != CURLE_OK){
-			//fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-
-			/* always cleanup */ 
-			
-		}else{
-			
-		}
-		
-		
+		free(header.ptr);
+		free(body.ptr);
 	}
 	curl_easy_cleanup(curl);
 	
@@ -286,20 +263,15 @@ std::string authorizationHeader = "Authorization: " + authtoken;
 		resp.header = std::string(header.ptr , header.len);
 		resp.body = std::string(body.ptr , body.len);
 		
-		if(res != CURLE_OK){
-			//fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+		free(header.ptr);
+		free(body.ptr);
 
-			
-		}else{
-			
-		}
-		
 		
 	}else{
 		
 	}
 	curl_easy_cleanup(curl);
-	
+
 	return resp;
 	
 }
@@ -321,7 +293,7 @@ std::string authorizationHeader = "Authorization: " + authtoken;
 	
 	
 	int imageFD = sceIoOpen( file.c_str(), SCE_O_WRONLY | SCE_O_CREAT, 0777);
-	if(!imageFD){
+	if(imageFD < 0){
 		resp.httpcode = -99;  // could not open file
 		return resp;
 	}
@@ -366,22 +338,22 @@ std::string authorizationHeader = "Authorization: " + authtoken;
 		resp.header = std::string(header.ptr , header.len);
 		resp.body = "";
 		
-		if(res != CURLE_OK){
-			//fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-
-			
-		}else{
-			
-		}
-		
-		
-	}else{
+		debugNetPrintf(DEBUG, "[VITANET] Libero header.ptr...\n");
+    	if(header.ptr) free(header.ptr);
+    
+    	debugNetPrintf(DEBUG, "[VITANET] Libero body.ptr...\n");
+    	if(body.ptr) free(body.ptr);
 		
 	}
-	sceIoClose(imageFD);
-	curl_easy_cleanup(curl);
-	
-	return resp;
+	debugNetPrintf(DEBUG, "[VITANET] Chiudo imageFD...\n");
+    sceIoClose(imageFD);
+    
+    debugNetPrintf(DEBUG, "[VITANET] Cleanup di cURL...\n");
+    curl_easy_cleanup(curl);
+    
+    
+    debugNetPrintf(DEBUG, "[VITANET] Fine curlDiscordDownloadImage, ritorno resp.\n");
+    return resp;
 }
 
 

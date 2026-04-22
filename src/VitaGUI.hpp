@@ -7,6 +7,7 @@
 #include "Discord.hpp"
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <locale>
 
 #define MAX_DRAW_HEIGHT 550
@@ -46,6 +47,7 @@ struct DownloadImageArgs {
 	Discord* discordPtr;
 	std::string url;
 	std::string filename;
+	std::string attachmentId;
 	VitaGUI* guiPtr;
 };
 
@@ -90,7 +92,6 @@ class VitaGUI{
 		void unshowLoginCue();
 		void showLoginCue();
 		
-		void handleUrlClick(const std::string& urlStr);
 		
 		void setUserInfo();
 		
@@ -205,7 +206,8 @@ class VitaGUI{
 		int loadingImageFrame = 0;
 		vita2d_texture * loadingAnim[FRAMES_LOADING_IMAGE];
 		
-		
+		std::string pendingExportPath = "";
+    	bool shouldExportToGallery = false;
 		int state = 0;  // 0 login , 1 loading , 2 guilds , 3 channels , 4 channellobby , 5 friends , 6 dms , 7 dmchannellobby , 15 settings , 85818764 stuff..
 	
 		int wordWrap(std::string str, unsigned int maxCharacters, std::string &out);  // return value is amount of linebreaks

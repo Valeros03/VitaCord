@@ -8,6 +8,7 @@
 #include <iostream>
 #include <map>
 
+pthread_mutex_t Discord::networkMutex = PTHREAD_MUTEX_INITIALIZER;
 std::string replaceEmojiShortcodes(std::string str) {
 	static const std::map<std::string, std::string> emojis = {
 		{":smile:", "😄"},
@@ -429,25 +430,27 @@ bool Discord::deleteMessage(std::string channelID , std::string messageID){
 }
 
 
-bool Discord::refreshMessages(){
 
-	//debugNetPrintf(DEBUG , "checking time to refresh messages\n" );
-	currentTimeMS = osGetTimeMS();
-	if(( currentTimeMS - lastFetchTimeMS > fetchTimeMS || forceRefreshMessages ) && !currentlyRefreshingMessages){
-		//debugNetPrintf(DEBUG , "get new messages\n" );
-
-		refreshingMessages = true;
-		currentlyRefreshingMessages = true;
-		getChannelMessages(currentChannel);
-		currentlyRefreshingMessages = false;
-		lastFetchTimeMS = osGetTimeMS();
-		refreshedMessages = true;
-		refreshingMessages = false;
-		forceRefreshMessages = false;
-
-	}
-	return true;
-
+bool Discord::refreshMessages() {
+    currentTimeMS = osGetTimeMS();
+    if((currentTimeMS - lastFetchTimeMS > fetchTimeMS || forceRefreshMessages) && !currentlyRefreshingMessages) {
+        
+        // --- LOCK RETE ---
+        pthread_mutex_lock(&Discord::networkMutex);
+        
+        refreshingMessages = true;
+        currentlyRefreshingMessages = true;
+        getChannelMessages(currentChannel); // La chiamata cURL vera e propria
+        currentlyRefreshingMessages = false;
+        lastFetchTimeMS = osGetTimeMS();
+        refreshedMessages = true;
+        refreshingMessages = false;
+        forceRefreshMessages = false;
+        
+        // --- UNLOCK RETE ---
+        pthread_mutex_unlock(&Discord::networkMutex);
+    }
+    return true;
 }
 
 void Discord::utf16_to_utf8(uint16_t *src, uint8_t *dst) {
@@ -588,7 +591,7 @@ void Discord::getChannelMessages(int channelIndex){
 						//std::strcpy (content, str.c_str());
 						//char * contentUtf8 = new char [str.length()+1];
 						//utf16_to_utf8((uint16_t *)content , (uint8_t *) contentUtf8);
-						newMessage.content = safeUtf8WordWrap(j_complete[iR]["content"].get<std::string>(), 40);
+						newMessage.content = j_complete[iR]["content"].get<std::string>();
 					}else{
 						newMessage.content = "";
 					}
@@ -643,104 +646,84 @@ void Discord::getChannelMessages(int channelIndex){
 					
 					bool attachmentDownloadEnabled = false; // Always false for now
 					
-					if(!j_complete[iR]["attachments"].is_null()){
-						if(!j_complete[iR]["attachments"][0].is_null()){
+					// ==========================================================
+					// 🚀 NUOVO PARSER ALLEGATI (SICURO E BLINDATO)
+					// ==========================================================
+					newMessage.attachment.isEmpty = true;
 
-							newMessage.attachment.isEmpty = false;
-							newMessage.attachment.isImage = false ;
-							newMessage.attachment.isData = false ;
-							newMessage.attachment.loadedThumbImage = false;
+					if (j_complete[iR].count("attachments") > 0 && j_complete[iR]["attachments"].is_array() && j_complete[iR]["attachments"].size() > 0) {
+						
+						auto& att = j_complete[iR]["attachments"][0]; // Lavoriamo sul primo allegato
+						
+						newMessage.attachment.isEmpty = false;
+						newMessage.attachment.isImage = false;
+						newMessage.attachment.isData = false;
+						newMessage.attachment.loadedThumbImage = false;
 
-							bool proxyAvailable = false;
-							bool filenameAvailable = false;
-							bool imageDimensionAvailable = false;
-							bool sizeAvailable = false;
-							bool urlAvailable = false;
+						// 1. Lettura SICURA dell'URL
+						if (att.count("url") > 0 && att["url"].is_string()) {
+							newMessage.attachment.url = att["url"].get<std::string>();
+						} else {
+							newMessage.attachment.url = "";
+						}
 
-							if(!j_complete[iR]["attachments"][0]["url"].is_null()){
-								newMessage.attachment.url = j_complete[iR]["attachments"][0]["url"].get<std::string>();
-								urlAvailable=true;
-							}else{
-								newMessage.attachment.url = "";
-							}
+						// 2. Lettura SICURA del Proxy URL
+						if (att.count("proxy_url") > 0 && att["proxy_url"].is_string()) {
+							newMessage.attachment.proxy_url = att["proxy_url"].get<std::string>();
+						} else {
+							newMessage.attachment.proxy_url = "";
+						}
 
-							if(!j_complete[iR]["attachments"][0]["proxy_url"].is_null()){
-								newMessage.attachment.proxy_url = j_complete[iR]["attachments"][0]["proxy_url"].get<std::string>();
-								proxyAvailable = true;
-							}else{
-								newMessage.attachment.proxy_url = "";
-							}
+						// 3. Lettura SICURA del Filename
+						if (att.count("filename") > 0 && att["filename"].is_string()) {
+							newMessage.attachment.filename = att["filename"].get<std::string>();
+						} else {
+							newMessage.attachment.filename = "noname.png";
+						}
 
-							if(!j_complete[iR]["attachments"][0]["filename"].is_null()){
-								newMessage.attachment.filename = j_complete[iR]["attachments"][0]["filename"].get<std::string>();
-								filenameAvailable = true;
-							}else{
-								newMessage.attachment.filename = "noname.png";
-							}
+						// 4. Lettura Dimensioni (Width, Height, Size)
+						if (att.count("width") > 0 && att["width"].is_number()) {
+							newMessage.attachment.width = att["width"].get<int>();
+						} else {
+							newMessage.attachment.width = -1;
+						}
 
-							if(!j_complete[iR]["attachments"][0]["id"].is_null()){
-								newMessage.attachment.id = j_complete[iR]["attachments"][0]["id"].get<std::string>();
-							}else{
-								newMessage.attachment.id = "";
-							}
-
-
-							if ( !j_complete[iR]["attachments"][0]["width"].is_null() ){
-								newMessage.attachment.width = j_complete[iR]["attachments"][0]["width"].get<int>();
-								imageDimensionAvailable = true;
+						if (att.count("size") > 0 && att["size"].is_number()) {
+							newMessage.attachment.size = att["size"].get<int>();
+							
+							// Calcolo grandezza leggibile
+							if(newMessage.attachment.size > 1024 * 1024){
+								newMessage.attachment.readableSize = static_cast<int>(newMessage.attachment.size / (1024 * 1024));
+								newMessage.attachment.readableSizeUnit = "MiB";
+							} else if(newMessage.attachment.size > 1024){
+								newMessage.attachment.readableSize = static_cast<int>(newMessage.attachment.size / 1024);
+								newMessage.attachment.readableSizeUnit = "KiB";
 							} else {
-								newMessage.attachment.width = -1;
+								newMessage.attachment.readableSize = static_cast<int>(newMessage.attachment.size);
+								newMessage.attachment.readableSizeUnit = "Byte";
 							}
+						} else {
+							newMessage.attachment.size = -1;
+						}
 
-							if ( !j_complete[iR]["attachments"][0]["height"].is_null() ){
-								newMessage.attachment.height = j_complete[iR]["attachments"][0]["height"].get<int>();
-							} else {
-								newMessage.attachment.height = -1;
-							}
+						// 💡 STAMPA DI SICUREZZA: Così vedrai nella console esattamente cosa pesca!
+						debugNetPrintf(DEBUG, "[JSON ALLEGATO] File: %s | URL REALE: %s\n", 
+									   newMessage.attachment.filename.c_str(), 
+									   newMessage.attachment.url.c_str());
 
-							if ( !j_complete[iR]["attachments"][0]["size"].is_null() ){
-								newMessage.attachment.size = j_complete[iR]["attachments"][0]["size"].get<int>();
-								sizeAvailable = true;
-
-								if(newMessage.attachment.size > 1024*1024){
-									newMessage.attachment.readableSize = static_cast<int> (  newMessage.attachment.size / ( 1024 * 1024 ) );
-									newMessage.attachment.readableSizeUnit = "MiB";
-								}else if(newMessage.attachment.size > 1024){
-									newMessage.attachment.readableSize =  static_cast<int> (  newMessage.attachment.size / ( 1024 ) );
-									newMessage.attachment.readableSizeUnit = "KiB";
-								}else{
-									newMessage.attachment.readableSize =  static_cast<int> (  newMessage.attachment.size );
-									newMessage.attachment.readableSizeUnit = "Byte";
-								}
-
-
-							} else {
-								newMessage.attachment.size = -1;
-							}
-
-							if ( proxyAvailable && filenameAvailable && imageDimensionAvailable ){
-								newMessage.attachment.isImage = true ;
-								newMessage.attachment.isData = false ;
-								// Disable downloading thumb data
-								newMessage.attachment.loadedThumbImage = true; // Use text placeholder instead
-								newMessage.attachment.isImage = true;
-								newMessage.attachment.isData = false;
-							}else if ( urlAvailable && filenameAvailable && sizeAvailable ){
-
-								loaddata:		// Label for goto
-								// Disable downloading file data
-								newMessage.attachment.isImage = false ;
-								newMessage.attachment.isData = true ;
-							}else{
-								newMessage.attachment.isEmpty = true ;
-								newMessage.attachment.isImage = false ;
-								newMessage.attachment.isData = false ;
-
-							}
-
-
+						// 5. Categorizzazione sicura
+						if (newMessage.attachment.proxy_url != "" && newMessage.attachment.filename != "" && newMessage.attachment.width > 0) {
+							newMessage.attachment.isImage = true;
+							newMessage.attachment.isData = false;
+							newMessage.attachment.loadedThumbImage = true; 
+						} else if (newMessage.attachment.url != "" && newMessage.attachment.filename != "") {
+							newMessage.attachment.isImage = false;
+							newMessage.attachment.isData = true;
+						} else {
+							newMessage.attachment.isEmpty = true;
 						}
 					}
+					// ==========================================================
 
 
 

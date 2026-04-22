@@ -185,8 +185,10 @@ class Discord{
 
 		std::vector<EmojiData> emojiVector;
 		std::unordered_map<uint32_t, size_t> fastEmojiMap;
-	private:
+		static pthread_mutex_t networkMutex;
 		VitaNet vitaNet;
+	private:
+		
 		bool verified, mfa_enabled; // mfa == twofactor its the same
 		bool twoFactorAuthEnabled;
 		bool loggedin;

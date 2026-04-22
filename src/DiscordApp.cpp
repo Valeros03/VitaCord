@@ -5,6 +5,7 @@
 
 #include <debugnet.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/io/dirent.h>
 #include "key.h"
 
 
@@ -178,8 +179,11 @@ void DiscordApp::Start(){
 		}
 	}
 	free(dirStat);
-	
-	
+
+
+	sceSysmoduleLoadModule(SCE_SYSMODULE_PHOTO_EXPORT);
+	cleanupOrphanReceipts();
+
 	logSD("load userdata file");
 	loadUserDataFromFile();
 	logSD("pass discord pointer to vitaGUI");
@@ -358,6 +362,47 @@ void DiscordApp::Start(){
 		
 	}
 	
+}
+
+DiscordApp::~DiscordApp()
+{
+
+sceSysmoduleUnloadModule(SCE_SYSMODULE_PHOTO_EXPORT);
+
+}
+
+void DiscordApp::cleanupOrphanReceipts() {
+    // Apriamo la cartella delle ricevute
+    SceUID dfd = sceIoDopen("ux0:data/vitacord/receipts");
+    if (dfd >= 0) {
+        SceIoDirent dir;
+        
+        // Leggiamo ogni singolo file nella cartella
+        while (sceIoDread(dfd, &dir) > 0) {
+            std::string fileName = dir.d_name;
+            
+            // Ignoriamo le cartelle di sistema "." e ".."
+            if (fileName == "." || fileName == "..") continue;
+
+            std::string receiptPath = "ux0:data/vitacord/receipts/" + fileName;
+            
+            // Leggiamo il percorso scritto dentro la ricevuta
+            SceUID fd = sceIoOpen(receiptPath.c_str(), SCE_O_RDONLY, 0);
+            if (fd >= 0) {
+                char savedPath[1024] = {0};
+                sceIoRead(fd, savedPath, sizeof(savedPath) - 1);
+                sceIoClose(fd);
+
+                // Il momento della verità: la foto esiste ancora in Galleria?
+                struct SceIoStat photoStat;
+                if (sceIoGetstat(savedPath, &photoStat) < 0) {
+                    // LA FOTO NON ESISTE PIÙ! La ricevuta è orfana: la eliminiamo.
+                    sceIoRemove(receiptPath.c_str());
+                }
+            }
+        }
+        sceIoDclose(dfd);
+    }
 }
 
 void DiscordApp::doLogin(){

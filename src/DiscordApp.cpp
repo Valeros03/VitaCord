@@ -381,7 +381,7 @@ void DiscordApp::cleanupOrphanReceipts() {
         while (sceIoDread(dfd, &dir) > 0) {
             std::string fileName = dir.d_name;
             
-            // Ignoriamo le cartelle di sistema "." e ".."
+            // Ignoriamo le cartelle di sistema
             if (fileName == "." || fileName == "..") continue;
 
             std::string receiptPath = "ux0:data/vitacord/receipts/" + fileName;
@@ -390,13 +390,33 @@ void DiscordApp::cleanupOrphanReceipts() {
             SceUID fd = sceIoOpen(receiptPath.c_str(), SCE_O_RDONLY, 0);
             if (fd >= 0) {
                 char savedPath[1024] = {0};
-                sceIoRead(fd, savedPath, sizeof(savedPath) - 1);
+                int bytesRead = sceIoRead(fd, savedPath, sizeof(savedPath) - 1);
                 sceIoClose(fd);
 
-                // Il momento della verità: la foto esiste ancora in Galleria?
-                struct SceIoStat photoStat;
-                if (sceIoGetstat(savedPath, &photoStat) < 0) {
-                    // LA FOTO NON ESISTE PIÙ! La ricevuta è orfana: la eliminiamo.
+                if (bytesRead > 0) {
+                    // FILTRO WHITELIST IN LETTURA
+                    std::string cleanSavedPath = "";
+                    for(int i = 0; i < bytesRead; i++){
+                        char c = savedPath[i];
+                        if(isalnum(c) || c == ':' || c == '/' || c == '.' || c == '_' || c == '-') {
+                            cleanSavedPath += c;
+                        }
+                    }
+
+                    // Se il percorso è valido (minimo 5 caratteri tipo "ux0:a")
+                    if (cleanSavedPath.length() > 5) {
+                        struct SceIoStat photoStat;
+                        // Il momento della verità: la foto esiste ancora in Galleria?
+                        if (sceIoGetstat(cleanSavedPath.c_str(), &photoStat) < 0) {
+                            // LA FOTO NON ESISTE PIÙ! La ricevuta è orfana: la eliminiamo.
+                            sceIoRemove(receiptPath.c_str());
+                        }
+                    } else {
+                        // Il file txt conteneva spazzatura, lo distruggiamo
+                        sceIoRemove(receiptPath.c_str());
+                    }
+                } else {
+                    // Il file txt era da 0 byte, lo distruggiamo
                     sceIoRemove(receiptPath.c_str());
                 }
             }

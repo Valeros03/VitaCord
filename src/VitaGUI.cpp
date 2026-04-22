@@ -394,12 +394,17 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
                 // ... codice dove scrivi la ricevuta dopo aver fatto l'export ...
                 SceUID fd = sceIoOpen(receiptPath.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
                 if (fd >= 0) {
-                    // Puliamo anche in scrittura, non ci fidiamo di cosa ci passa outPath
-                    std::string finalOutPath(outPath);
-                    finalOutPath.erase(finalOutPath.find_last_not_of(" \n\r\t\0") + 1);
-                    
-                    sceIoWrite(fd, finalOutPath.c_str(), finalOutPath.length()); 
+                    std::string finalOutPath = "";
+                    // Filtro Whitelist: salviamo SOLO i caratteri che compongono un percorso valido
+                    for(int i = 0; i < 1024 && outPath[i] != '\0'; i++){
+                        char c = outPath[i];
+                        if(isalnum(c) || c == ':' || c == '/' || c == '.' || c == '_' || c == '-') {
+                            finalOutPath += c;
+                        }
+                    }
+                    sceIoWrite(fd, finalOutPath.c_str(), finalOutPath.length());
                     sceIoClose(fd);
+                    sceIoSync("ux0:", 0); // Forziamo il salvataggio su disco
                 }
                 
                 sceIoRemove(tempPath.c_str());

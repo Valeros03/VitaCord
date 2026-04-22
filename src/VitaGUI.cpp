@@ -475,7 +475,8 @@ void VitaGUI::DrawStatusBar() {
 
 	pthread_mutex_lock(&uiNotificationMutex);
 	if (showDownloadNotification && notificationTimer > 0) {
-		vita2d_font_draw_text(vita2dFont[20], 10, 25, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
+		int textWidth = vita2d_font_text_width(vita2dFont[20], 20, downloadNotificationText.c_str());
+		vita2d_font_draw_text(vita2dFont[20], (960 - textWidth) / 2, 22, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
 		notificationTimer--;
 	} else if (notificationTimer <= 0) {
 		showDownloadNotification = false;

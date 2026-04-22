@@ -1,0 +1,11 @@
+--- src/VitaGUI.cpp
++++ src/VitaGUI.cpp
+@@ -936,7 +936,7 @@
+ }
+
+
+-int VitaGUI::click(int x , int y){
++int VitaGUI::click(int x , int y, uint64_t duration){
+	if(state == 0){
+		for(unsigned int i = 0 ; i < loginInputs.size() ; i++){
+			if( x > loginInputs[i].x && x < loginInputs[i].x + loginInputs[i].w){

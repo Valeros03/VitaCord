@@ -1,0 +1,11 @@
+--- src/VitaGUI.cpp
++++ src/VitaGUI.cpp
+@@ -1166,7 +1166,7 @@
+							for (auto& box : url.boxes) {
+								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
+									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
+-									handleUrlClick(url.url);
++									if (duration < 2000000) { handleUrlClick(url.url); }
+									return -1;
+								}
+							}

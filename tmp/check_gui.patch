@@ -1,0 +1,11 @@
+--- src/VitaGUI.hpp
++++ src/VitaGUI.hpp
+@@ -57,7 +57,7 @@
+		void AddRectangle(float x , float y , float w , float h , unsigned int color);
+		void RemoveRectangle(unsigned int index);
+		int scroll(int x , int y , int posx  , int posy);
+-		int click(int x , int y);
++		int click(int x , int y, uint64_t duration = 0);
+		int analogScrollRight(int x , int y);
+		int analogScrollLeft(int x , int y);
+		std::vector<std::string> loginTexts;

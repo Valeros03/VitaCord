@@ -1,6 +1,6 @@
 #include "VitaTouch.hpp"
 #include <stdlib.h>
-#include <psp2/kernel/processmgr.h>
+
 
 VitaTouch::VitaTouch(){
 	emptyClickPoint.x = emptyClickPoint.y = 0;
@@ -11,7 +11,7 @@ void VitaTouch::initTouch(){
 	sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, SCE_TOUCH_SAMPLING_STATE_START);
 	sceTouchEnableTouchForce(SCE_TOUCH_PORT_FRONT);
 	sceTouchEnableTouchForce(SCE_TOUCH_PORT_BACK);
-	
+
 }
 
 void VitaTouch::readTouch(){
@@ -20,10 +20,6 @@ void VitaTouch::readTouch(){
 	for(port = 0; port < SCE_TOUCH_PORT_MAX_NUM; port++){
 		sceTouchPeek(port, &touch[port], 1);
 	}
-	if (touch_old[SCE_TOUCH_PORT_FRONT].reportNum == 0 && touch[SCE_TOUCH_PORT_FRONT].reportNum >= 1) {
-		touchDownTime = sceKernelGetProcessTimeWide();
-	}
-
 	if (touch_old[SCE_TOUCH_PORT_FRONT].reportNum >= 1 && touch[SCE_TOUCH_PORT_FRONT].reportNum == 0){
 		if(!scrolling){
 			lastClickPoint.x = touch_old[SCE_TOUCH_PORT_FRONT].report[0].x / 2;  // 1920 touch => 960 display
@@ -32,7 +28,6 @@ void VitaTouch::readTouch(){
 			lastTouchPoint = emptyClickPoint;
 			scrolling = false;
 			clicking = true;
-			touchDuration = sceKernelGetProcessTimeWide() - touchDownTime;
 		}else{
 			lastClickPoint = emptyClickPoint;
 			lastTouchPoint = emptyClickPoint;
@@ -62,7 +57,3 @@ void VitaTouch::readTouch(){
 vector2 VitaTouch::getClickPoint(){
 	return lastClickPoint;
 }
-
-
-
-

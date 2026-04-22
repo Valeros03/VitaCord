@@ -310,6 +310,24 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
     
     std::string tempPath = "ux0:data/" + safeName;
 
+    SceIoStat statInfo;
+    if (sceIoGetstat(tempPath.c_str(), &statInfo) >= 0) {
+        pthread_mutex_lock(&uiNotificationMutex);
+        this->downloadNotificationText = "the image alredy exists in the system";
+        this->showDownloadNotification = true;
+        this->notificationTimer = 180;
+        pthread_mutex_unlock(&uiNotificationMutex);
+
+        std::string originalUrl = args->url;
+        delete args;
+
+        pthread_mutex_lock(&downloadMutex);
+        activeDownloads.erase(originalUrl);
+        pthread_mutex_unlock(&downloadMutex);
+
+        return;
+    }
+
     // --- IL TRUCCO MAGICO PER LA GALLERIA ---
     // Chiediamo esplicitamente a Discord di transcodificare l'immagine 
     // in un JPEG standard, togliendo metadati strani o formati WebP mascherati.

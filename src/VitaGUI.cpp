@@ -1643,13 +1643,18 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 	
 }
 
+void VitaGUI::handleUrlClick(std::string url)
+{
 
-void VitaGUI::setUserInfo(){
-	
-	panelUsername = discordPtr->username;
-	panelUserDiscriminator = "#" + discordPtr->discriminator;
+	//bob
 }
 
+void VitaGUI::setUserInfo()
+{
+
+    panelUsername = discordPtr->username;
+	panelUserDiscriminator = "#" + discordPtr->discriminator;
+}
 
 void VitaGUI::showLoginCue(){
 	vita2d_start_drawing();

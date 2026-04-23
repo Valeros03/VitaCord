@@ -92,7 +92,7 @@ class VitaGUI{
 		void unshowLoginCue();
 		void showLoginCue();
 		
-		
+		void handleUrlClick(std::string url);
 		void setUserInfo();
 		
 		std::string downloadNotificationText = "";

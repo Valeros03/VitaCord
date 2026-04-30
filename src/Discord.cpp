@@ -592,6 +592,47 @@ void Discord::getChannelMessages(int channelIndex){
 						//char * contentUtf8 = new char [str.length()+1];
 						//utf16_to_utf8((uint16_t *)content , (uint8_t *) contentUtf8);
 						newMessage.content = j_complete[iR]["content"].get<std::string>();
+						
+						size_t httpPos = newMessage.content.find("http://");
+						size_t httpsPos = newMessage.content.find("https://");
+						size_t urlPos = std::string::npos;
+						if (httpPos != std::string::npos && httpsPos != std::string::npos) {
+							urlPos = std::min(httpPos, httpsPos);
+						} else if (httpPos != std::string::npos) {
+							urlPos = httpPos;
+						} else if (httpsPos != std::string::npos) {
+							urlPos = httpsPos;
+						}
+						
+						if (urlPos != std::string::npos) {
+							size_t endPos = newMessage.content.find_first_of(" \t\n\r", urlPos);
+							std::string firstUrl = newMessage.content.substr(urlPos, endPos - urlPos);
+							
+							VitaNet::http_response previewResp = vitaNet.curlGet(firstUrl);
+							if (previewResp.httpcode == 200) {
+								size_t descPos = previewResp.body.find("<meta name=\"description\" content=\"");
+								if (descPos == std::string::npos) {
+									descPos = previewResp.body.find("<meta property=\"og:description\" content=\"");
+								}
+								if (descPos != std::string::npos) {
+									size_t startQuote = previewResp.body.find("\"", descPos + 15);
+									if (startQuote != std::string::npos) {
+										size_t endQuote = previewResp.body.find("\"", startQuote + 1);
+										if (endQuote != std::string::npos) {
+											newMessage.previewDescription = previewResp.body.substr(startQuote + 1, endQuote - startQuote - 1);
+										}
+									}
+								} else {
+									size_t titleStart = previewResp.body.find("<title>");
+									if (titleStart != std::string::npos) {
+										size_t titleEnd = previewResp.body.find("</title>", titleStart);
+										if (titleEnd != std::string::npos) {
+											newMessage.previewDescription = previewResp.body.substr(titleStart + 7, titleEnd - titleStart - 7);
+										}
+									}
+								}
+							}
+						}
 					}else{
 						newMessage.content = "";
 					}
@@ -1370,6 +1411,47 @@ void Discord::getCurrentDirectMessages(){
 
 					if(!j_complete[i]["content"].is_null()){
 						directMessages[currentDirectMessage].messages[i].content = j_complete[i]["content"].get<std::string>();
+						
+						size_t httpPos = directMessages[currentDirectMessage].messages[i].content.find("http://");
+						size_t httpsPos = directMessages[currentDirectMessage].messages[i].content.find("https://");
+						size_t urlPos = std::string::npos;
+						if (httpPos != std::string::npos && httpsPos != std::string::npos) {
+							urlPos = std::min(httpPos, httpsPos);
+						} else if (httpPos != std::string::npos) {
+							urlPos = httpPos;
+						} else if (httpsPos != std::string::npos) {
+							urlPos = httpsPos;
+						}
+						
+						if (urlPos != std::string::npos) {
+							size_t endPos = directMessages[currentDirectMessage].messages[i].content.find_first_of(" \t\n\r", urlPos);
+							std::string firstUrl = directMessages[currentDirectMessage].messages[i].content.substr(urlPos, endPos - urlPos);
+							
+							VitaNet::http_response previewResp = vitaNet.curlGet(firstUrl);
+							if (previewResp.httpcode == 200) {
+								size_t descPos = previewResp.body.find("<meta name=\"description\" content=\"");
+								if (descPos == std::string::npos) {
+									descPos = previewResp.body.find("<meta property=\"og:description\" content=\"");
+								}
+								if (descPos != std::string::npos) {
+									size_t startQuote = previewResp.body.find("\"", descPos + 15);
+									if (startQuote != std::string::npos) {
+										size_t endQuote = previewResp.body.find("\"", startQuote + 1);
+										if (endQuote != std::string::npos) {
+											directMessages[currentDirectMessage].messages[i].previewDescription = previewResp.body.substr(startQuote + 1, endQuote - startQuote - 1);
+										}
+									}
+								} else {
+									size_t titleStart = previewResp.body.find("<title>");
+									if (titleStart != std::string::npos) {
+										size_t titleEnd = previewResp.body.find("</title>", titleStart);
+										if (titleEnd != std::string::npos) {
+											directMessages[currentDirectMessage].messages[i].previewDescription = previewResp.body.substr(titleStart + 7, titleEnd - titleStart - 7);
+										}
+									}
+								}
+							}
+						}
 					}else{
 						directMessages[currentDirectMessage].messages[i].content = "";
 					}

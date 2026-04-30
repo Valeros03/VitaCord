@@ -307,63 +307,18 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
 
     std::string safeName = args->filename;
     for(auto &c : safeName) if(c == '?' || c == '&' || c == '=' || c == '/') c = '_';
-
-    std::string cleanId = "";
-    for(char c : args->attachmentId) {
-        // isalnum controlla che sia un numero o una lettera. Ignora tutto il resto!
-        if(isalnum(c)) { 
-            cleanId += c;
-        }
-    }
-    if(cleanId.empty()) cleanId = "NO_ID";
-
-    // 2. CREAZIONE CARTELLE IN ORDINE CORRETTO
-    struct SceIoStat dirStat;
-    if (sceIoGetstat("ux0:data/vitacord", &dirStat) < 0) {
-        sceIoMkdir("ux0:data/vitacord", 0777); 
-    }
-    if (sceIoGetstat("ux0:data/vitacord/receipts", &dirStat) < 0) {
-        sceIoMkdir("ux0:data/vitacord/receipts", 0777); 
-    }
-
-    // Costruiamo il path con l'ID finalmente pulito
-    std::string receiptPath = "ux0:data/vitacord/receipts/" + cleanId + ".txt";
-
-    // 3. CONTROLLO INVINCIBILE
-    // Proviamo ad aprirlo in sola lettura. Se si apre, esiste!
-    SceUID checkFd = sceIoOpen(receiptPath.c_str(), SCE_O_RDONLY, 0);
-    if (checkFd >= 0) {
-        // IL FILE ESISTE DAVVERO!
-        sceIoClose(checkFd); // Lo chiudiamo subito
-        
-        pthread_mutex_lock(&uiNotificationMutex);
-        this->downloadNotificationText = "Immagine già in Galleria!";
-        this->showDownloadNotification = true;
-        this->notificationTimer = 180;
-        pthread_mutex_unlock(&uiNotificationMutex);
-
-        std::string originalUrl = args->url;
-        delete args;
-        pthread_mutex_lock(&downloadMutex);
-        activeDownloads.erase(originalUrl);
-        pthread_mutex_unlock(&downloadMutex);
-        return; 
-    }
     
-    // NOME TEMPORANEO UNICO (Con l'ID pulito)
-    std::string tempPath = "ux0:data/" + cleanId + "_" + safeName;
+    std::string tempPath = "ux0:data/" + safeName;
+
+    // --- IL TRUCCO MAGICO PER LA GALLERIA ---
+    // Chiediamo esplicitamente a Discord di transcodificare l'immagine 
+    // in un JPEG standard, togliendo metadati strani o formati WebP mascherati.
     std::string downloadUrl = args->url;
     if (downloadUrl.find('?') != std::string::npos) {
         downloadUrl += "&format=jpeg";
     } else {
         downloadUrl += "?format=jpeg";
     }
-
-	pthread_mutex_lock(&uiNotificationMutex);
-											this->downloadNotificationText = "Download in corso...";
-											this->showDownloadNotification = true;
-											this->notificationTimer = 180;
-											pthread_mutex_unlock(&uiNotificationMutex);
 
     // 1. DOWNLOAD IN DATA (usando l'URL transcodificato)
     pthread_mutex_lock(&Discord::networkMutex);
@@ -384,38 +339,25 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
 
         if (working_mem) {
             
+            // LA CHIAVE DI TUTTO: CARICHIAMO IL MODULO IN RAM!
+            sceSysmoduleLoadModule(SCE_SYSMODULE_PHOTO_EXPORT);
+            
             // Ora la funzione esiste in memoria e non salterà nel vuoto
             int res = scePhotoExportFromFile(tempPath.c_str(), &param, working_mem, nullptr, nullptr, outPath, sizeof(outPath));
             
+            // SPEGNIAMO IL MODULO PER LIBERARE RAM
+            sceSysmoduleUnloadModule(SCE_SYSMODULE_PHOTO_EXPORT);
+
             pthread_mutex_lock(&uiNotificationMutex);
             if (res >= 0) {
                 this->downloadNotificationText = "Aggiunto in Galleria!";
-                
-                // ... codice dove scrivi la ricevuta dopo aver fatto l'export ...
-                SceUID fd = sceIoOpen(receiptPath.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
-                if (fd >= 0) {
-                    std::string finalOutPath = "";
-                    // Filtro Whitelist: salviamo SOLO i caratteri che compongono un percorso valido
-                    for(int i = 0; i < 1024 && outPath[i] != '\0'; i++){
-                        char c = outPath[i];
-                        if(isalnum(c) || c == ':' || c == '/' || c == '.' || c == '_' || c == '-') {
-                            finalOutPath += c;
-                        }
-                    }
-                    sceIoWrite(fd, finalOutPath.c_str(), finalOutPath.length());
-                    sceIoClose(fd);
-                    sceIoSync("ux0:", 0); // Forziamo il salvataggio su disco
-                }
-                
-                sceIoRemove(tempPath.c_str());
             } else {
                 this->downloadNotificationText = "Errore API Sony: " + std::to_string(res);
-				this->showDownloadNotification = true;
-            	this->notificationTimer = 180;
             }
-			this->showDownloadNotification = true;
+            this->showDownloadNotification = true;
             this->notificationTimer = 180;
-			pthread_mutex_unlock(&uiNotificationMutex);
+            pthread_mutex_unlock(&uiNotificationMutex);
+
             free(working_mem);
         }
     } else {
@@ -480,8 +422,7 @@ void VitaGUI::DrawStatusBar() {
 
 	pthread_mutex_lock(&uiNotificationMutex);
 	if (showDownloadNotification && notificationTimer > 0) {
-		int textWidth = vita2d_font_text_width(vita2dFont[20], 20, downloadNotificationText.c_str());
-		vita2d_font_draw_text(vita2dFont[20], (960 - textWidth) / 2, 22, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
+		vita2d_font_draw_text(vita2dFont[20], 10, 25, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
 		notificationTimer--;
 	} else if (notificationTimer <= 0) {
 		showDownloadNotification = false;
@@ -759,8 +700,14 @@ void VitaGUI::Draw(){
 		vita2d_draw_rectangle(146, 30, 84, 69, RGBA8(66, 70, 77, 225));
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
 		
+		
+		// maybe add something on the big right 
+		
+		/// STATBAR
 		DrawStatusBar();
 		
+		
+		// MESSAGEINPUT
 		vita2d_draw_texture(messageInputImage, 230, 473);
 		
 	}else if(state == 9){
@@ -967,7 +914,7 @@ int VitaGUI::analogScrollLeft(int x , int y){
 }
 
 
-int VitaGUI::click(int x , int y, uint64_t duration){
+int VitaGUI::click(int x , int y){
 	if(state == 0){
 		for(unsigned int i = 0 ; i < loginInputs.size() ; i++){
 			if( x > loginInputs[i].x && x < loginInputs[i].x + loginInputs[i].w){
@@ -1068,7 +1015,6 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
 									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked URL: %s\n", url.url.c_str());
-									if (duration < 2000000) { handleUrlClick(url.url); }
 									return -1;
 								}
 							}
@@ -1115,7 +1061,6 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 											args->url = messageBoxes[i].attachmentUrl;
 											args->filename = messageBoxes[i].attachmentFilename;
 											args->guiPtr = this;
-											args->attachmentId = messageBoxes[i].messageID;
 
 											// === FIX DEL CRASH (Aumentiamo lo stack del thread!) ===
 											pthread_t downloadThread;
@@ -1130,6 +1075,11 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 											pthread_attr_destroy(&attr); // Puliamo l'attributo
 											pthread_detach(downloadThread);
 
+											pthread_mutex_lock(&uiNotificationMutex);
+											this->downloadNotificationText = "Download in corso...";
+											this->showDownloadNotification = true;
+											this->notificationTimer = 180;
+											pthread_mutex_unlock(&uiNotificationMutex);
 										} else {
 											pthread_mutex_unlock(&downloadMutex);
 										}
@@ -1142,7 +1092,7 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 						if( clickedMessage ){
 							debugNetPrintf(DEBUG , "un-clicked message\n");
 							clickedMessage = false;
-						}else if (duration >= 2000000) {
+						}else{
 							debugNetPrintf(DEBUG , "clicked message : \n");
 							debugNetPrintf(DEBUG , messageBoxes[i].content.c_str());
 							debugNetPrintf(DEBUG , " \n");
@@ -1228,7 +1178,6 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
 									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
-									if (duration < 2000000) { handleUrlClick(url.url); }
 									return -1;
 								}
 							}
@@ -1372,9 +1321,16 @@ bool VitaGUI::setMessageBoxes(){
 			boxC.content = cleanMentions(discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].content, boxC.mentionsMap);
 			boxC.mentionsMap.clear();
 
+			boxC.previewDescription = discordPtr->guilds[discordPtr->currentGuild].channels[discordPtr->currentChannel].messages[i].previewDescription;
+
         // 1. Esegui il wordWrap intelligente (usiamo 640 pixel di maxWidth)
         	int numLines = wordWrap(boxC.content, 640, boxC.content); 
 			textHeight = numLines * (32 + 4) + topMargin + bottomMargin; 
+
+			if(!boxC.previewDescription.empty()){
+				int previewLines = wordWrap(boxC.previewDescription, 640, boxC.previewDescription);
+				textHeight += previewLines * (24 + 4) + 16;
+			}
         
         	boxC.messageHeight = max(64, textHeight); // 64 è l'altezza minima per i messaggi con poco testo, per evitare che siano troppo piccoli
 			boxC.urls = parseUrls(boxC.content);
@@ -1610,11 +1566,19 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 			boxC.content = cleanMentions(rawContent, boxC.mentionsMap);
 			boxC.mentionsMap.clear();
 
+			boxC.previewDescription = discordPtr->directMessages[discordPtr->currentDirectMessage].messages[i].previewDescription;
+
 			// 2. Esegui il wordWrap intelligente in pixel
 			int numLines = wordWrap(boxC.content, 640, boxC.content);
 
 			// 3. Calcola l'altezza matematicamente
 			textHeight = numLines * (32 + 4) + topMargin + bottomMargin; 
+			
+			if(!boxC.previewDescription.empty()){
+				int previewLines = wordWrap(boxC.previewDescription, 640, boxC.previewDescription);
+				textHeight += previewLines * (24 + 4) + 16;
+			}
+			
 			boxC.messageHeight = max(64, textHeight);
 
 			// 4. Solo ora calcola gli URL
@@ -1643,18 +1607,13 @@ void VitaGUI::setDirectMessageMessagesBoxes(){
 	
 }
 
-void VitaGUI::handleUrlClick(std::string url)
-{
 
-	//bob
-}
-
-void VitaGUI::setUserInfo()
-{
-
-    panelUsername = discordPtr->username;
+void VitaGUI::setUserInfo(){
+	
+	panelUsername = discordPtr->username;
 	panelUserDiscriminator = "#" + discordPtr->discriminator;
 }
+
 
 void VitaGUI::showLoginCue(){
 	vita2d_start_drawing();
@@ -1752,6 +1711,12 @@ void VitaGUI::DrawMessages(){
 					url.boxes.clear();
 				}
 				DrawTextWithEmojis(messageBoxes[i].content, 293, yPos + 60, 32, 650, &(messageBoxes[i].urls));
+
+				if(!messageBoxes[i].previewDescription.empty()){
+					int linesContent = wordWrap(messageBoxes[i].content, 640, messageBoxes[i].content);
+					int previewY = yPos + 60 + linesContent * (32 + 4) + 8;
+					vita2d_font_draw_text(vita2dFont[24], 293, previewY, RGBA8(180, 180, 180, 255), 24, messageBoxes[i].previewDescription.c_str());
+				}
 				 
 			if( messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary ){
 				std::string attText = messageBoxes[i].showAttachmentAsImage ? "[ 📷 Immagine ]" : "[ 📎 Allegato ]";
@@ -1843,6 +1808,12 @@ void VitaGUI::DrawDirectMessageMessages(){
 					url.boxes.clear();
 				}
 				DrawTextWithEmojis(directMessageMessagesBoxes[i].content, 293, yPos + 60, 15, 650, &(directMessageMessagesBoxes[i].urls));
+
+				if(!directMessageMessagesBoxes[i].previewDescription.empty()){
+					int linesContent = wordWrap(directMessageMessagesBoxes[i].content, 640, directMessageMessagesBoxes[i].content);
+					int previewY = yPos + 60 + linesContent * (15 + 4) + 8;
+					vita2d_font_draw_text(vita2dFont[15], 293, previewY, RGBA8(180, 180, 180, 255), 15, directMessageMessagesBoxes[i].previewDescription.c_str());
+				}
 
 			
 			// Not drawing default icons anymore.

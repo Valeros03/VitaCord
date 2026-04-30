@@ -78,6 +78,7 @@ typedef struct{
 	int attachmentReadableSize;
 	std::string attachmentReadableSizeUnit;
 	std::string attachmentFullText;
+	std::string previewDescription;
 
 	std::vector<m_emoji> emojis;
 

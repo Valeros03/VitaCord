@@ -60,6 +60,7 @@ class Discord{
 			//std::u32string contentUTF32;
 			std::string embed;
 			message_attachment attachment;
+			std::string previewDescription;
 			std::string mentions;
 			std::string timestamp;
 			std::string id;

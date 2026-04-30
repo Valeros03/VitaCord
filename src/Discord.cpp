@@ -608,8 +608,9 @@ void Discord::getChannelMessages(int channelIndex){
 							size_t endPos = newMessage.content.find_first_of(" \t\n\r", urlPos);
 							std::string firstUrl = newMessage.content.substr(urlPos, endPos - urlPos);
 							
+							newMessage.previewDescription = "";
 							VitaNet::http_response previewResp = vitaNet.curlGet(firstUrl);
-							if (previewResp.httpcode == 200) {
+							if (previewResp.httpcode == 200 && !previewResp.body.empty()) {
 								size_t descPos = previewResp.body.find("<meta name=\"description\" content=\"");
 								if (descPos == std::string::npos) {
 									descPos = previewResp.body.find("<meta property=\"og:description\" content=\"");
@@ -1427,8 +1428,9 @@ void Discord::getCurrentDirectMessages(){
 							size_t endPos = directMessages[currentDirectMessage].messages[i].content.find_first_of(" \t\n\r", urlPos);
 							std::string firstUrl = directMessages[currentDirectMessage].messages[i].content.substr(urlPos, endPos - urlPos);
 							
+							directMessages[currentDirectMessage].messages[i].previewDescription = "";
 							VitaNet::http_response previewResp = vitaNet.curlGet(firstUrl);
-							if (previewResp.httpcode == 200) {
+							if (previewResp.httpcode == 200 && !previewResp.body.empty()) {
 								size_t descPos = previewResp.body.find("<meta name=\"description\" content=\"");
 								if (descPos == std::string::npos) {
 									descPos = previewResp.body.find("<meta property=\"og:description\" content=\"");

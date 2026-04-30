@@ -1013,8 +1013,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : messageBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
-									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked URL: %s\n", url.url.c_str());
+									if (duration < 2000000) { handleUrlClick(url.url); }
 									return -1;
 								}
 							}
@@ -1176,8 +1176,8 @@ int VitaGUI::click(int x , int y){
 						for (auto& url : directMessageMessagesBoxes[i].urls) {
 							for (auto& box : url.boxes) {
 								if (x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
-									// TODO: Handle URL click
 									debugNetPrintf(DEBUG, "Clicked DM URL: %s\n", url.url.c_str());
+									if (duration < 2000000) { handleUrlClick(url.url); }
 									return -1;
 								}
 							}

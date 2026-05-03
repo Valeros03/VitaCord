@@ -38,6 +38,13 @@
 #define CLICKED_MESSAGE 2500
 #define CLICKED_DM_ICON 50000
 #define CLICKED_MESSAGE_INPUT 1221
+#define CLICKED_VOICE_CHANNELS_TOGGLE 50001
+#define CLICKED_DIRECT_CALL_START 50002
+
+#define VOICEICONX 62
+#define VOICEICONY 30
+#define VOICEICONX2 146
+#define VOICEICONY2 99
 
 #define MAX_EMOJI 2500;
 
@@ -108,6 +115,7 @@ class VitaGUI{
 		int emojiTestScrollY = 0;
 		
 		bool clickedMessage = false;
+		bool showingVoiceChannels = false;
 		messagebox deleteMessageBox;
 		messagebox editMessageBox;
 		
@@ -147,6 +155,8 @@ class VitaGUI{
 		vita2d_texture *sidepanelStateIconImage;
 		vita2d_texture *messageInputImage;
 		vita2d_texture *defaultBinaryThumbnail;
+		vita2d_texture *voiceIconImage;
+		vita2d_texture *startCallIconImage;
 		std::vector<rectangle> rectangles;
 		std::string loadingScreenString;
 		//std::vector<std::string> guildNames;

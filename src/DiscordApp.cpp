@@ -272,8 +272,16 @@ void DiscordApp::Start(){
 				case CLICKED_DM_ICON:
 					vitaGUI.SetState(6);
 					break;
+				case CLICKED_VOICE_CHANNELS_TOGGLE:
+					vitaGUI.showingVoiceChannels = !vitaGUI.showingVoiceChannels;
+					vitaGUI.setChannelBoxes();
+					break;
 				default:
-					JoinChannel(clicked);
+					if (vitaGUI.showingVoiceChannels) {
+						OnVoiceChannelPressed(clicked);
+					} else {
+						JoinChannel(clicked);
+					}
 					break;
 				
 			}
@@ -296,12 +304,21 @@ void DiscordApp::Start(){
 					vitaGUI.SetState(6);
 					break;
 					
+				case CLICKED_VOICE_CHANNELS_TOGGLE:
+					vitaGUI.showingVoiceChannels = !vitaGUI.showingVoiceChannels;
+					vitaGUI.setChannelBoxes();
+					break;
+
 				case CLICKED_MESSAGE_INPUT:
 					SendChannelMessage();
 					break;
 				
 				default:
-					JoinChannel(clicked);
+					if (vitaGUI.showingVoiceChannels) {
+						OnVoiceChannelPressed(clicked);
+					} else {
+						JoinChannel(clicked);
+					}
 					break;
 				
 			}
@@ -347,6 +364,10 @@ void DiscordApp::Start(){
 					
 				case CLICKED_MESSAGE_INPUT:
 					SendDirectMessage();
+					break;
+
+				case CLICKED_DIRECT_CALL_START:
+					OnDirectCallStart();
 					break;
 					
 				default:
@@ -423,6 +444,14 @@ void DiscordApp::cleanupOrphanReceipts() {
         }
         sceIoDclose(dfd);
     }
+}
+
+void DiscordApp::OnVoiceChannelPressed(int channelIndex){
+	logSD("Voice channel pressed: " + std::to_string(channelIndex));
+}
+
+void DiscordApp::OnDirectCallStart(){
+	logSD("Direct call started");
 }
 
 void DiscordApp::doLogin(){

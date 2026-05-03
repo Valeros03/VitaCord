@@ -182,7 +182,6 @@ void DiscordApp::Start(){
 
 
 	sceSysmoduleLoadModule(SCE_SYSMODULE_PHOTO_EXPORT);
-	cleanupOrphanReceipts();
 
 	logSD("load userdata file");
 	loadUserDataFromFile();
@@ -371,6 +370,7 @@ sceSysmoduleUnloadModule(SCE_SYSMODULE_PHOTO_EXPORT);
 
 }
 
+/*Can't use this method beacuse psVita doesn't make you access sceIoGetStatus on a system folder as photo:*/
 void DiscordApp::cleanupOrphanReceipts() {
     // Apriamo la cartella delle ricevute
     SceUID dfd = sceIoDopen("ux0:data/vitacord/receipts");

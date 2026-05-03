@@ -344,7 +344,9 @@ Discord::~Discord(){
 bool Discord::sendDirectMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending DM\n" );
 	std::string processedMsg = replaceEmojiShortcodes(msg);
-	std::string postData = "{ \"content\":\"" + processedMsg + "\" }";
+	nlohmann::json jsonPayload;
+	jsonPayload["content"] = processedMsg;
+	std::string postData = jsonPayload.dump();
 	std::string sendDMMessageUrl = "https://discord.com/api/v9/channels/"
 							+ directMessages[currentDirectMessage].id + "/messages" ;
 	VitaNet::http_response senddmmessageresponse = vitaNet.curlDiscordPost(sendDMMessageUrl , postData , token);
@@ -359,7 +361,9 @@ bool Discord::sendDirectMessage(std::string msg){
 bool Discord::sendMessage(std::string msg){
 	debugNetPrintf(DEBUG , "Sending message\n" );
 	std::string processedMsg = replaceEmojiShortcodes(msg);
-	std::string postData = "{ \"content\":\"" + processedMsg + "\" }";
+	nlohmann::json jsonPayload;
+	jsonPayload["content"] = processedMsg;
+	std::string postData = jsonPayload.dump();
 	std::string sendMessageUrl = "https://discord.com/api/v9/channels/" + guilds[currentGuild].channels[currentChannel].id + "/messages" ;
 	VitaNet::http_response sendmessageresponse = vitaNet.curlDiscordPost(sendMessageUrl , postData , token);
 	if(sendmessageresponse.httpcode == 200){
@@ -372,7 +376,9 @@ bool Discord::sendMessage(std::string msg){
 
 bool Discord::editMessage(std::string channelID , std::string messageID , std::string newContent){
 	std::string editMessageUrl = "https://discord.com/api/v9/channels/" + channelID + "/messages/" + messageID;
-	std::string patchData = "{ \"content\":\"" + newContent + "\" }";
+	nlohmann::json jsonPayload;
+	jsonPayload["content"] = newContent;
+	std::string patchData = jsonPayload.dump();
 	VitaNet::http_response editmessageresponse = vitaNet.curlDiscordPatch(editMessageUrl , patchData , token);
 
 	if(editmessageresponse.httpcode == 200){

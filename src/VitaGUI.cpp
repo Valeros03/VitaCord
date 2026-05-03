@@ -1,24 +1,34 @@
 #include "VitaGUI.hpp"
 #include <pthread.h>
 #include <psp2/photoexport.h>
+#include <psp2/appmgr.h>
 #include "VitaNet.hpp"
 #include "log.hpp"
 #include <istream>
 #include <sstream>
 #include <iterator>
+#include <cctype>
 #include <psp2/io/dirent.h>
 #include <psp2/power.h>
+#include <psp2/rtc.h>
 #include <psp2/io/stat.h>
 #include <psp2/io/fcntl.h>
-#include <psp2/rtc.h>
+#include <psp2/io/dirent.h>
 #include <debugnet.h>
-#include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/threadmgr.h>
 #include <malloc.h>
-#include <psp2/sysmodule.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
+bool endsWithCaseInsensitive(const std::string& mainStr, const std::string& toMatch) {
+    if (mainStr.size() < toMatch.size()) return false;
+    std::string mainStrSuffix = mainStr.substr(mainStr.size() - toMatch.size());
+    for (size_t i = 0; i < mainStrSuffix.size(); ++i) {
+        if (std::tolower(mainStrSuffix[i]) != std::tolower(toMatch[i])) return false;
+    }
+    return true;
+}
 
 
 std::vector<parsed_url> parseUrls(const std::string& text) {
@@ -307,12 +317,56 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
 
     std::string safeName = args->filename;
     for(auto &c : safeName) if(c == '?' || c == '&' || c == '=' || c == '/') c = '_';
-    
-    std::string tempPath = "ux0:data/" + safeName;
 
-    // --- IL TRUCCO MAGICO PER LA GALLERIA ---
-    // Chiediamo esplicitamente a Discord di transcodificare l'immagine 
-    // in un JPEG standard, togliendo metadati strani o formati WebP mascherati.
+    // --- ESTRAZIONE ID UNIVOCO DALL'URL ---
+    // L'URL di Discord è tipo: /attachments/channel_id/attachment_id/filename.jpg
+    // Estraiamo "attachment_id" per usarlo come nome univoco della ricevuta.
+    std::string uniqueId = "IMG";
+    size_t lastSlash = args->url.find_last_of('/');
+    if (lastSlash != std::string::npos && lastSlash > 10) {
+        size_t prevSlash = args->url.find_last_of('/', lastSlash - 1);
+        if (prevSlash != std::string::npos) {
+            uniqueId = args->url.substr(prevSlash + 1, lastSlash - prevSlash - 1);
+        }
+    }
+    
+    // --- SISTEMA ANTI-DUPLICATI (RICEVUTE) ---
+    struct SceIoStat dirStat;
+    if (sceIoGetstat("ux0:data/vitacord", &dirStat) < 0) {
+        sceIoMkdir("ux0:data/vitacord", 0777); 
+    }
+    if (sceIoGetstat("ux0:data/vitacord/receipts", &dirStat) < 0) {
+        sceIoMkdir("ux0:data/vitacord/receipts", 0777); 
+    }
+
+    std::string receiptPath = "ux0:data/vitacord/receipts/" + uniqueId + "_" + safeName + ".txt";
+
+    // Controlliamo se abbiamo già scaricato questa foto in passato
+    SceUID checkFd = sceIoOpen(receiptPath.c_str(), SCE_O_RDONLY, 0);
+    if (checkFd >= 0) {
+        // LA RICEVUTA ESISTE! Il download viene bloccato.
+        sceIoClose(checkFd);
+
+        pthread_mutex_lock(&uiNotificationMutex);
+        this->downloadNotificationText = "Immagine già in Galleria!";
+        this->showDownloadNotification = true;
+        this->notificationTimer = 180;
+        pthread_mutex_unlock(&uiNotificationMutex);
+
+        std::string originalUrl = args->url;
+        delete args;
+        
+        pthread_mutex_lock(&downloadMutex);
+        activeDownloads.erase(originalUrl);
+        pthread_mutex_unlock(&downloadMutex);
+        
+        return; 
+    }
+    // -----------------------------------------
+    
+    // NOME TEMPORANEO IN DATA (usiamo anche l'ID per evitare sovrascritture incrociate)
+    std::string tempPath = "ux0:data/" + uniqueId + "_" + safeName;
+
     std::string downloadUrl = args->url;
     if (downloadUrl.find('?') != std::string::npos) {
         downloadUrl += "&format=jpeg";
@@ -320,7 +374,14 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
         downloadUrl += "?format=jpeg";
     }
 
-    // 1. DOWNLOAD IN DATA (usando l'URL transcodificato)
+    // Avvisiamo la UI che parte il vero download
+    pthread_mutex_lock(&uiNotificationMutex);
+    this->downloadNotificationText = "Download in corso...";
+    this->showDownloadNotification = true;
+    this->notificationTimer = 180;
+    pthread_mutex_unlock(&uiNotificationMutex);
+
+    // 1. DOWNLOAD IN DATA
     pthread_mutex_lock(&Discord::networkMutex);
     VitaNet::http_response resp = args->discordPtr->vitaNet.curlDiscordDownloadImage(downloadUrl, args->discordPtr->token, tempPath);
     pthread_mutex_unlock(&Discord::networkMutex);
@@ -335,22 +396,35 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
         char outPath[1024]; 
         memset(outPath, 0, sizeof(outPath));
 
-        void* working_mem = memalign(4096, 512 * 1024); 
+        // Abbassato a 256KB: 512KB a volte facevano fallire l'allocazione sulla console
+        void* working_mem = memalign(4096, 256 * 1024); 
 
         if (working_mem) {
             
-            // LA CHIAVE DI TUTTO: CARICHIAMO IL MODULO IN RAM!
             sceSysmoduleLoadModule(SCE_SYSMODULE_PHOTO_EXPORT);
-            
-            // Ora la funzione esiste in memoria e non salterà nel vuoto
             int res = scePhotoExportFromFile(tempPath.c_str(), &param, working_mem, nullptr, nullptr, outPath, sizeof(outPath));
-            
-            // SPEGNIAMO IL MODULO PER LIBERARE RAM
             sceSysmoduleUnloadModule(SCE_SYSMODULE_PHOTO_EXPORT);
 
             pthread_mutex_lock(&uiNotificationMutex);
             if (res >= 0) {
                 this->downloadNotificationText = "Aggiunto in Galleria!";
+                
+                // --- SCRITTURA DELLA RICEVUTA ---
+                SceUID rFd = sceIoOpen(receiptPath.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+                if (rFd >= 0) {
+                    std::string finalOutPath(outPath);
+                    
+                    // Puliamo il percorso che ci ha dato la Sony da eventuali schifezze
+                    size_t nullPos = finalOutPath.find('\0');
+                    if(nullPos != std::string::npos) finalOutPath.erase(nullPos);
+                    finalOutPath.erase(finalOutPath.find_last_not_of(" \n\r\t") + 1);
+                    
+                    sceIoWrite(rFd, finalOutPath.c_str(), finalOutPath.length());
+                    sceIoClose(rFd);
+                    sceIoSync("ux0:", 0); // Forziamo il salvataggio immediato sul disco
+                }
+                // --------------------------------
+
             } else {
                 this->downloadNotificationText = "Errore API Sony: " + std::to_string(res);
             }
@@ -359,17 +433,30 @@ void VitaGUI::downloadImageThread(DownloadImageArgs* args) {
             pthread_mutex_unlock(&uiNotificationMutex);
 
             free(working_mem);
+        } else {
+            // SE MANCA LA RAM, ORA L'APP CE LO DICE!
+            pthread_mutex_lock(&uiNotificationMutex);
+            this->downloadNotificationText = "Errore: Memoria RAM insufficiente!";
+            this->showDownloadNotification = true;
+            this->notificationTimer = 180;
+            pthread_mutex_unlock(&uiNotificationMutex);
         }
+
+        // Distruggiamo SEMPRE il file temporaneo
+        sceIoRemove(tempPath.c_str());
+
     } else {
         pthread_mutex_lock(&uiNotificationMutex);
         this->downloadNotificationText = "Errore Download: " + std::to_string(resp.httpcode);
         this->showDownloadNotification = true;
         this->notificationTimer = 180;
         pthread_mutex_unlock(&uiNotificationMutex);
+        
+        sceIoRemove(tempPath.c_str());
     }
 
-    // PULIZIA FINALE
-    std::string originalUrl = args->url; // Usiamo l'url originale per rimuoverlo dalla mappa
+    // PULIZIA FINALE DEL THREAD
+    std::string originalUrl = args->url; 
     delete args;
 
     pthread_mutex_lock(&downloadMutex);
@@ -422,7 +509,8 @@ void VitaGUI::DrawStatusBar() {
 
 	pthread_mutex_lock(&uiNotificationMutex);
 	if (showDownloadNotification && notificationTimer > 0) {
-		vita2d_font_draw_text(vita2dFont[20], 10, 25, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
+		int textWidth = vita2d_font_text_width(vita2dFont[20], 20, downloadNotificationText.c_str());
+		vita2d_font_draw_text(vita2dFont[20], (960 - textWidth) / 2, 22, RGBA8(0, 255, 0, 255), 20, downloadNotificationText.c_str());
 		notificationTimer--;
 	} else if (notificationTimer <= 0) {
 		showDownloadNotification = false;
@@ -914,7 +1002,7 @@ int VitaGUI::analogScrollLeft(int x , int y){
 }
 
 
-int VitaGUI::click(int x , int y){
+int VitaGUI::click(int x , int y, uint64_t duration){
 	if(state == 0){
 		for(unsigned int i = 0 ; i < loginInputs.size() ; i++){
 			if( x > loginInputs[i].x && x < loginInputs[i].x + loginInputs[i].w){
@@ -1024,65 +1112,31 @@ int VitaGUI::click(int x , int y){
 						if (messageBoxes[i].showAttachmentAsImage || messageBoxes[i].showAttachmentAsBinary) {
 							if (x > messageBoxes[i].attachmentBox.x && x < messageBoxes[i].attachmentBox.x + messageBoxes[i].attachmentBox.w &&
 								y > messageBoxes[i].attachmentBox.y && y < messageBoxes[i].attachmentBox.y + messageBoxes[i].attachmentBox.h) {
-								if (messageBoxes[i].attachmentUrl != "") {
+								if (messageBoxes[i].attachmentUrl != "" && messageBoxes[i].showAttachmentAsImage) {
+									debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
 
-									// =================================================================
-									// 🛡️ FIREWALL: VALIDAZIONE URL ED ERROR HANDLING
-									// =================================================================
-									std::string targetUrl = messageBoxes[i].attachmentUrl;
-									
-									// Controlla se l'URL è troppo corto o non è un link http/https valido
-									if (targetUrl.length() < 4 || (targetUrl.substr(0, 4) != "http" && targetUrl.substr(0, 4) != "HTTP")) {
-										
-										// Logghiamo l'errore in console
-										debugNetPrintf(DEBUG, "[FIREWALL] CRASH EVITATO! URL malformato: '%s'\n", targetUrl.c_str());
-										
-										// Notifichiamo l'utente visivamente
+									pthread_mutex_lock(&downloadMutex);
+									if (activeDownloads.find(messageBoxes[i].attachmentUrl) == activeDownloads.end()) {
+										activeDownloads[messageBoxes[i].attachmentUrl] = true;
+										pthread_mutex_unlock(&downloadMutex);
+
+										DownloadImageArgs* args = new DownloadImageArgs();
+										args->discordPtr = this->discordPtr;
+										args->url = messageBoxes[i].attachmentUrl;
+										args->filename = messageBoxes[i].attachmentFilename;
+										args->guiPtr = this;
+
+										pthread_t downloadThread;
+										pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+										pthread_detach(downloadThread);
+
 										pthread_mutex_lock(&uiNotificationMutex);
-										this->downloadNotificationText = "Errore: URL Allegato Non Valido";
+										this->downloadNotificationText = "Download in corso...";
 										this->showDownloadNotification = true;
 										this->notificationTimer = 180;
 										pthread_mutex_unlock(&uiNotificationMutex);
-										
-										return -1; // INTERROMPE IL CLICK: Niente thread = niente crash
-									}
-									// =================================================================
-
-									if (messageBoxes[i].showAttachmentAsImage) {
-										debugNetPrintf(DEBUG, "Clicked Attachment: %s\n", messageBoxes[i].attachmentFilename.c_str());
-
-										pthread_mutex_lock(&downloadMutex);
-										if (activeDownloads.find(messageBoxes[i].attachmentUrl) == activeDownloads.end()) {
-											activeDownloads[messageBoxes[i].attachmentUrl] = true;
-											pthread_mutex_unlock(&downloadMutex);
-
-											DownloadImageArgs* args = new DownloadImageArgs();
-											args->discordPtr = this->discordPtr;
-											args->url = messageBoxes[i].attachmentUrl;
-											args->filename = messageBoxes[i].attachmentFilename;
-											args->guiPtr = this;
-
-											// === FIX DEL CRASH (Aumentiamo lo stack del thread!) ===
-											pthread_t downloadThread;
-											pthread_attr_t attr;
-											pthread_attr_init(&attr);
-											
-											// Diamo 256 KB di memoria al thread (fondamentale per cURL/SSL)
-											pthread_attr_setstacksize(&attr, 2 * 1024 * 1024); 
-											
-											pthread_create(&downloadThread, &attr, &VitaGUI::downloadImageWrapper, args);
-											
-											pthread_attr_destroy(&attr); // Puliamo l'attributo
-											pthread_detach(downloadThread);
-
-											pthread_mutex_lock(&uiNotificationMutex);
-											this->downloadNotificationText = "Download in corso...";
-											this->showDownloadNotification = true;
-											this->notificationTimer = 180;
-											pthread_mutex_unlock(&uiNotificationMutex);
-										} else {
-											pthread_mutex_unlock(&downloadMutex);
-										}
+									} else {
+										pthread_mutex_unlock(&downloadMutex);
 									}
 									return -1;
 								}
@@ -1092,7 +1146,7 @@ int VitaGUI::click(int x , int y){
 						if( clickedMessage ){
 							debugNetPrintf(DEBUG , "un-clicked message\n");
 							clickedMessage = false;
-						}else{
+						}else if (duration >= 2000000) {
 							debugNetPrintf(DEBUG , "clicked message : \n");
 							debugNetPrintf(DEBUG , messageBoxes[i].content.c_str());
 							debugNetPrintf(DEBUG , " \n");
@@ -1191,6 +1245,44 @@ int VitaGUI::click(int x , int y){
 
 	}
 	return -1;
+}
+
+
+void VitaGUI::handleUrlClick(const std::string& urlStr) {
+	if (endsWithCaseInsensitive(urlStr, ".png") ||
+		endsWithCaseInsensitive(urlStr, ".jpg") ||
+		endsWithCaseInsensitive(urlStr, ".jpeg") ||
+		endsWithCaseInsensitive(urlStr, ".webp") ||
+		endsWithCaseInsensitive(urlStr, ".gif")) {
+
+		std::string filename = urlStr.substr(urlStr.find_last_of("/") + 1);
+
+		pthread_mutex_lock(&downloadMutex);
+		if (activeDownloads.find(urlStr) == activeDownloads.end()) {
+			activeDownloads[urlStr] = true;
+			pthread_mutex_unlock(&downloadMutex);
+
+			DownloadImageArgs* args = new DownloadImageArgs();
+			args->discordPtr = this->discordPtr;
+			args->url = urlStr;
+			args->filename = filename;
+			args->guiPtr = this;
+
+			pthread_t downloadThread;
+			pthread_create(&downloadThread, NULL, &VitaGUI::downloadImageWrapper, args);
+			pthread_detach(downloadThread);
+
+			pthread_mutex_lock(&uiNotificationMutex);
+			this->downloadNotificationText = "Download in corso...";
+			this->showDownloadNotification = true;
+			this->notificationTimer = 180;
+			pthread_mutex_unlock(&uiNotificationMutex);
+		} else {
+			pthread_mutex_unlock(&downloadMutex);
+		}
+	} else {
+		sceAppMgrLaunchAppByUri(0x20000, urlStr.c_str());
+	}
 }
 
 void VitaGUI::AddRectangle(float nx , float ny , float nw , float nh , unsigned int ncolor){

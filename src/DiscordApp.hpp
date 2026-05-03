@@ -10,6 +10,23 @@
 #include "Discord.hpp"
 #include "VitaGUI.hpp"
 
+#define GO_SERVER_IP "192.168.1.24"
+#define GO_SERVER_PORT "8080"
+#define GO_SERVER_UDP_PORT 5000
+#define VOICE_PLUGIN_PORT 9090
+
+typedef enum {
+    CMD_STOP_STREAMING = 0,
+    CMD_START_STREAMING = 1,
+    CMD_SHUTDOWN_PLUGIN = 2
+} CommandType;
+
+typedef struct {
+    CommandType command;
+    char target_ip[16]; // IP of the Go server
+    int target_port;    // UDP Port (usually 5000)
+} VitaCordCommand;
+
 
 class DiscordApp{
 	
@@ -44,6 +61,8 @@ private:
     void JoinChannel(int index);
     void OnVoiceChannelPressed(int channelIndex);
     void OnDirectCallStart();
+    void LeaveVoiceChannel();
+    void CheckVoiceState();
 	
 };
 

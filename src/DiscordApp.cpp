@@ -2,6 +2,7 @@
 #include "log.hpp"
 #include "easyencryptor.hpp"
 #include <psp2/io/stat.h> 
+#include <psp2/net/net.h>
 
 #include <debugnet.h>
 #include <psp2/io/fcntl.h>
@@ -188,6 +189,8 @@ void DiscordApp::Start(){
 	logSD("pass discord pointer to vitaGUI");
 	vitaGUI.passDiscordPointer( &discord );
 	vitaGUI.passVITAIMEPointer( &vitaIME );
+	logSD("check voice state");
+	CheckVoiceState();
 	logSD("start program loop");
 	for(;;){
 		
@@ -276,6 +279,9 @@ void DiscordApp::Start(){
 					vitaGUI.showingVoiceChannels = !vitaGUI.showingVoiceChannels;
 					vitaGUI.setChannelBoxes();
 					break;
+				case CLICKED_DISCONNECT_VOICE:
+				    LeaveVoiceChannel();
+				    break;
 				default:
 					if (vitaGUI.showingVoiceChannels) {
 						OnVoiceChannelPressed(clicked);
@@ -313,6 +319,10 @@ void DiscordApp::Start(){
 					SendChannelMessage();
 					break;
 				
+				case CLICKED_DISCONNECT_VOICE:
+				    LeaveVoiceChannel();
+				    break;
+
 				default:
 					if (vitaGUI.showingVoiceChannels) {
 						OnVoiceChannelPressed(clicked);
@@ -338,6 +348,10 @@ void DiscordApp::Start(){
 					LeaveDMChannel();
 					break;
 					
+				case CLICKED_DISCONNECT_VOICE:
+				    LeaveVoiceChannel();
+				    break;
+
 				default:
 					JoinDMChannel(clicked);
 					break;
@@ -370,6 +384,10 @@ void DiscordApp::Start(){
 					OnDirectCallStart();
 					break;
 					
+				case CLICKED_DISCONNECT_VOICE:
+				    LeaveVoiceChannel();
+				    break;
+
 				default:
 					JoinDMChannel(clicked);
 					break;
@@ -446,8 +464,81 @@ void DiscordApp::cleanupOrphanReceipts() {
     }
 }
 
+void DiscordApp::CheckVoiceState(){
+    std::string proxyUrl = "http://192.168.1.24:8080/api/status";
+    VitaNet::http_response resp = discord.vitaNet.curlGet(proxyUrl);
+    if(resp.httpcode == 200){
+        try{
+            nlohmann::json parsed = nlohmann::json::parse(resp.body);
+            if(parsed.contains("status") && parsed["status"] == "connected"){
+                vitaGUI.showCallStrip = true;
+            }
+        }catch(...){
+            logSD("Failed to parse status JSON");
+        }
+    }
+}
+
+void DiscordApp::LeaveVoiceChannel(){
+    logSD("Leaving Voice Channel");
+
+    // Send command to plugin
+    int s = sceNetSocket("VitaCordVoiceSocket", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
+    if (s >= 0) {
+        SceNetSockaddrIn serveraddr;
+        serveraddr.sin_family = SCE_NET_AF_INET;
+        serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
+        serveraddr.sin_port = sceNetHtons(9090);
+
+        if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
+            VitaCordCommand cmd;
+            cmd.command = CMD_STOP_STREAMING;
+            sceNetSend(s, &cmd, sizeof(cmd), 0);
+        }
+        sceNetSocketClose(s);
+    }
+
+    // HTTP POST to Go Server
+    discord.vitaNet.curlDiscordPost("http://192.168.1.24:8080/api/leave", "{}", "");
+    vitaGUI.showCallStrip = false;
+}
+
 void DiscordApp::OnVoiceChannelPressed(int channelIndex){
 	logSD("Voice channel pressed: " + std::to_string(channelIndex));
+
+	if(channelIndex >= 0 && channelIndex < discord.guilds[discord.currentGuild].channels.size()){
+	    std::string guild_id = discord.guilds[discord.currentGuild].id;
+	    std::string channel_id = discord.guilds[discord.currentGuild].channels[channelIndex].id;
+
+	    nlohmann::json payload;
+	    payload["guild_id"] = guild_id;
+	    payload["channel_id"] = channel_id;
+
+	    VitaNet::http_response resp = discord.vitaNet.curlDiscordPost("http://192.168.1.24:8080/api/join", payload.dump(), "");
+
+	    if(resp.httpcode == 200){
+	        // Start streaming
+	        int s = sceNetSocket("VitaCordVoiceSocket", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
+            if (s >= 0) {
+                SceNetSockaddrIn serveraddr;
+                serveraddr.sin_family = SCE_NET_AF_INET;
+                serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
+                serveraddr.sin_port = sceNetHtons(9090);
+
+                if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
+                    VitaCordCommand cmd;
+                    cmd.command = CMD_START_STREAMING;
+                    snprintf(cmd.target_ip, sizeof(cmd.target_ip), "%s", "192.168.1.24");
+                    cmd.target_port = 5000;
+                    sceNetSend(s, &cmd, sizeof(cmd), 0);
+                }
+                sceNetSocketClose(s);
+            }
+
+	        vitaGUI.showCallStrip = true;
+	        vitaGUI.connectedVoiceChannelName = discord.guilds[discord.currentGuild].channels[channelIndex].name;
+	    }
+	}
 }
 
 void DiscordApp::OnDirectCallStart(){

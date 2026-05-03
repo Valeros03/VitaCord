@@ -40,6 +40,7 @@
 #define CLICKED_MESSAGE_INPUT 1221
 #define CLICKED_VOICE_CHANNELS_TOGGLE 50001
 #define CLICKED_DIRECT_CALL_START 50002
+#define CLICKED_DISCONNECT_VOICE 50005
 
 #define VOICEICONX 62
 #define VOICEICONY 30
@@ -114,8 +115,12 @@ class VitaGUI{
 		int emojiTestScrollX = 0;
 		int emojiTestScrollY = 0;
 		
+		void DrawCallStrip();
 		bool clickedMessage = false;
 		bool showingVoiceChannels = false;
+		bool showCallStrip = false;
+		std::string connectedVoiceChannelName = "";
+		click_rect disconnectButtonRect;
 		messagebox deleteMessageBox;
 		messagebox editMessageBox;
 		

@@ -661,6 +661,10 @@ void VitaGUI::Draw(){
 		// CHANNELS
 		DrawChannelsOnSidebar();
 		
+		if(showCallStrip) {
+		    DrawCallStrip();
+		}
+
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
 		vita2d_draw_rectangle(0, 99, 230, 1, RGBA8(5, 5, 6, 255));
@@ -712,6 +716,10 @@ void VitaGUI::Draw(){
 		}
 		
 		
+		if(showCallStrip) {
+		    DrawCallStrip();
+		}
+
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
 		vita2d_draw_rectangle(0, 99, 230, 1, RGBA8(5, 5, 6, 255));
@@ -758,6 +766,9 @@ void VitaGUI::Draw(){
 		
 		DrawDirectMessageUsersOnSidebar();
 		
+		if(showCallStrip) {
+		    DrawCallStrip();
+		}
 		
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
@@ -796,6 +807,10 @@ void VitaGUI::Draw(){
 		
 		DrawDirectMessageMessages();
 		
+		if(showCallStrip) {
+		    DrawCallStrip();
+		}
+
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
 		vita2d_draw_rectangle(0, 99, 230, 1, RGBA8(5, 5, 6, 255));
@@ -1071,6 +1086,14 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 			return CLICKED_VOICE_CHANNELS_TOGGLE;
 		}
 		
+		if (showCallStrip) {
+		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+		            return CLICKED_DISCONNECT_VOICE;
+		        }
+		    }
+		}
+
 		if( y < 515  &&  y > 99){
 			for(unsigned int i = 0 ; i < channelBoxes.size() ; i++){
 				if( x  > channelBoxes[i].x && x  < channelBoxes[i].x + channelBoxes[i].w){
@@ -1090,6 +1113,14 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 			return CLICKED_VOICE_CHANNELS_TOGGLE;
 		}
 		
+		if (showCallStrip) {
+		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+		            return CLICKED_DISCONNECT_VOICE;
+		        }
+		    }
+		}
+
 		if( x > inputboxMessageInput.x && y < inputboxMessageInput.x + inputboxMessageInput.w){
 			if( y > inputboxMessageInput.y && y < inputboxMessageInput.y + inputboxMessageInput.h){
 				return CLICKED_MESSAGE_INPUT;
@@ -1227,6 +1258,14 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 			return CLICKED_DM_ICON;
 		}
 		
+		if (showCallStrip) {
+		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+		            return CLICKED_DISCONNECT_VOICE;
+		        }
+		    }
+		}
+
 		if( y < 515  &&  y > 99){
 			for(unsigned int i = 0 ; i < directMessageBoxes.size() ; i++){
 				if( x  > directMessageBoxes[i].x && x  < directMessageBoxes[i].x + directMessageBoxes[i].w){
@@ -1245,6 +1284,13 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 			return CLICKED_DIRECT_CALL_START;
 		}
 		
+		if (showCallStrip) {
+		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+		            return CLICKED_DISCONNECT_VOICE;
+		        }
+		    }
+		}
 		
 		if( x > inputboxMessageInput.x && y < inputboxMessageInput.x + inputboxMessageInput.w){
 			if( y > inputboxMessageInput.y && y < inputboxMessageInput.y + inputboxMessageInput.h){
@@ -1540,6 +1586,33 @@ bool VitaGUI::setMessageBoxes(){
 		return true;
 	}
 	return false;
+}
+
+void VitaGUI::DrawCallStrip() {
+    int stripX = 230;
+    int stripY = 433; // Exactly 40px above message input (473)
+    int stripW = 730;
+    int stripH = 40;
+
+    // Draw Background
+    vita2d_draw_rectangle(stripX, stripY, stripW, stripH, RGBA8(43, 45, 49, 255)); // #2B2D31 Dark Theme
+
+    // Draw Top Border
+    vita2d_draw_rectangle(stripX, stripY, stripW, 1, RGBA8(30, 31, 34, 255));
+
+    // Render Connection Status Text
+    std::string statusText = "Connected to " + connectedVoiceChannelName;
+    vita2d_font_draw_text(vita2dFont[18], stripX + 20, stripY + 28, RGBA8(67, 181, 129, 255), 18, statusText.c_str());
+
+    // Disconnect Button Area (Right Aligned)
+    disconnectButtonRect.x = stripX + stripW - 120;
+    disconnectButtonRect.y = stripY + 5;
+    disconnectButtonRect.w = 100;
+    disconnectButtonRect.h = 30;
+
+    // Draw Disconnect Button
+    vita2d_draw_rectangle(disconnectButtonRect.x, disconnectButtonRect.y, disconnectButtonRect.w, disconnectButtonRect.h, RGBA8(237, 66, 69, 255)); // #ED4245 Red
+    vita2d_font_draw_text(vita2dFont[15], disconnectButtonRect.x + 12, disconnectButtonRect.y + 22, RGBA8(255, 255, 255, 255), 15, "Disconnect");
 }
 
 int VitaGUI::wordWrap(std::string str, unsigned int maxWidthPixels, std::string &out) {

@@ -10,6 +10,11 @@
 #include "Discord.hpp"
 #include "VitaGUI.hpp"
 
+#define GO_SERVER_IP "192.168.1.24"
+#define GO_SERVER_PORT "8080"
+#define GO_SERVER_UDP_PORT 5000
+#define VOICE_PLUGIN_PORT 9090
+
 typedef enum {
     CMD_STOP_STREAMING = 0,
     CMD_START_STREAMING = 1,

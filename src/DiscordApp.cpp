@@ -465,7 +465,7 @@ void DiscordApp::cleanupOrphanReceipts() {
 }
 
 void DiscordApp::CheckVoiceState(){
-    std::string proxyUrl = "http://192.168.1.24:8080/api/status";
+    std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":" + GO_SERVER_PORT + "/api/status";
     VitaNet::http_response resp = discord.vitaNet.curlGet(proxyUrl);
     if(resp.httpcode == 200){
         try{
@@ -488,7 +488,7 @@ void DiscordApp::LeaveVoiceChannel(){
         SceNetSockaddrIn serveraddr;
         serveraddr.sin_family = SCE_NET_AF_INET;
         serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
-        serveraddr.sin_port = sceNetHtons(9090);
+        serveraddr.sin_port = sceNetHtons(VOICE_PLUGIN_PORT);
 
         if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
             VitaCordCommand cmd;
@@ -499,7 +499,8 @@ void DiscordApp::LeaveVoiceChannel(){
     }
 
     // HTTP POST to Go Server
-    discord.vitaNet.curlDiscordPost("http://192.168.1.24:8080/api/leave", "{}", "");
+    std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":" + GO_SERVER_PORT + "/api/leave";
+    discord.vitaNet.curlDiscordPost(proxyUrl, "{}", "");
     vitaGUI.showCallStrip = false;
 }
 
@@ -514,7 +515,8 @@ void DiscordApp::OnVoiceChannelPressed(int channelIndex){
 	    payload["guild_id"] = guild_id;
 	    payload["channel_id"] = channel_id;
 
-	    VitaNet::http_response resp = discord.vitaNet.curlDiscordPost("http://192.168.1.24:8080/api/join", payload.dump(), "");
+	    std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":" + GO_SERVER_PORT + "/api/join";
+	    VitaNet::http_response resp = discord.vitaNet.curlDiscordPost(proxyUrl, payload.dump(), "");
 
 	    if(resp.httpcode == 200){
 	        // Start streaming
@@ -523,13 +525,13 @@ void DiscordApp::OnVoiceChannelPressed(int channelIndex){
                 SceNetSockaddrIn serveraddr;
                 serveraddr.sin_family = SCE_NET_AF_INET;
                 serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
-                serveraddr.sin_port = sceNetHtons(9090);
+                serveraddr.sin_port = sceNetHtons(VOICE_PLUGIN_PORT);
 
                 if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
                     VitaCordCommand cmd;
                     cmd.command = CMD_START_STREAMING;
-                    snprintf(cmd.target_ip, sizeof(cmd.target_ip), "%s", "192.168.1.24");
-                    cmd.target_port = 5000;
+                    snprintf(cmd.target_ip, sizeof(cmd.target_ip), "%s", GO_SERVER_IP);
+                    cmd.target_port = GO_SERVER_UDP_PORT;
                     sceNetSend(s, &cmd, sizeof(cmd), 0);
                 }
                 sceNetSocketClose(s);

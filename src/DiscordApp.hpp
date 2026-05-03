@@ -42,6 +42,8 @@ private:
     void JoinDMChannel(int index);
     void LeaveDMChannel();
     void JoinChannel(int index);
+    void OnVoiceChannelPressed(int channelIndex);
+    void OnDirectCallStart();
 	
 };
 

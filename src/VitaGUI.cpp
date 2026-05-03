@@ -243,6 +243,8 @@ VitaGUI::VitaGUI(){
 	sidepanelStateIconImage = vita2d_load_PNG_file("app0:assets/images/Vitacord-sidebar-default-usericon.png");
 	messageInputImage = vita2d_load_PNG_file("app0:assets/images/Vitacord-messager-input.png");
 	defaultBinaryThumbnail = vita2d_load_PNG_file("app0:assets/images/BinaryFile.png");
+	voiceIconImage = vita2d_load_PNG_file("app0:assets/images/Vitacord-VoiceIcon-8BIT.png");
+	startCallIconImage = vita2d_load_PNG_file("app0:assets/images/Vitacord-StartCall-8BIT.png");
 	
 	loginInputs.clear();
 	
@@ -671,6 +673,12 @@ void VitaGUI::Draw(){
 		
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON  
 		
+		if(voiceIconImage) {
+			vita2d_draw_texture(voiceIconImage, VOICEICONX, VOICEICONY);
+		}else{
+			vita2d_draw_rectangle(VOICEICONX, VOICEICONY, 84, 69, RGBA8(66, 70, 77, 225));
+			vita2d_font_draw_text(vita2dFont[15], VOICEICONX + 20, VOICEICONY + 40, RGBA8(255, 255, 255, 255), 15, "Voice");
+		}
 		
 		// maybe add something on the big right 
 		
@@ -719,6 +727,13 @@ void VitaGUI::Draw(){
 		
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
 		
+		if(voiceIconImage) {
+			vita2d_draw_texture(voiceIconImage, VOICEICONX, VOICEICONY);
+		}else{
+			vita2d_draw_rectangle(VOICEICONX, VOICEICONY, 84, 69, RGBA8(66, 70, 77, 225));
+			vita2d_font_draw_text(vita2dFont[15], VOICEICONX + 20, VOICEICONY + 40, RGBA8(255, 255, 255, 255), 15, "Voice");
+		}
+
 		
 		// maybe add something on the big right 
 		
@@ -757,6 +772,12 @@ void VitaGUI::Draw(){
 		vita2d_draw_rectangle(146, 30, 84, 69, RGBA8(66, 70, 77, 225));
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
 		
+		if(voiceIconImage) {
+			vita2d_draw_texture(voiceIconImage, VOICEICONX, VOICEICONY);
+		}else{
+			vita2d_draw_rectangle(VOICEICONX, VOICEICONY, 84, 69, RGBA8(66, 70, 77, 225));
+			vita2d_font_draw_text(vita2dFont[15], VOICEICONX + 20, VOICEICONY + 40, RGBA8(255, 255, 255, 255), 15, "Voice");
+		}
 		
 		// maybe add something on the big right 
 		
@@ -788,9 +809,24 @@ void VitaGUI::Draw(){
 		vita2d_draw_rectangle(146, 30, 84, 69, RGBA8(66, 70, 77, 225));
 		vita2d_draw_texture(dmIconImage, 166, 41); // DM ICON 
 		
+		if(voiceIconImage) {
+			vita2d_draw_texture(voiceIconImage, VOICEICONX, VOICEICONY);
+		}else{
+			vita2d_draw_rectangle(VOICEICONX, VOICEICONY, 84, 69, RGBA8(66, 70, 77, 225));
+			vita2d_font_draw_text(vita2dFont[15], VOICEICONX + 20, VOICEICONY + 40, RGBA8(255, 255, 255, 255), 15, "Voice");
+		}
 		
 		// maybe add something on the big right 
 		
+		int callBtnX = 960 - 80; // 880
+		int callBtnY = 40;
+		if(startCallIconImage){
+			vita2d_draw_texture(startCallIconImage, callBtnX, callBtnY);
+		}else{
+			vita2d_draw_rectangle(callBtnX, callBtnY, 70, 30, RGBA8(66, 70, 77, 225));
+			vita2d_font_draw_text(vita2dFont[15], callBtnX + 15, callBtnY + 20, RGBA8(255,255,255,255), 15, "Call");
+		}
+
 		/// STATBAR
 		DrawStatusBar();
 		
@@ -1031,6 +1067,9 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		if(x > DMICONX && x < DMICONX2 && y > DMICONY && y < DMICONY2){
 			return CLICKED_DM_ICON;
 		}
+		if(x > VOICEICONX && x < VOICEICONX2 && y > VOICEICONY && y < VOICEICONY2){
+			return CLICKED_VOICE_CHANNELS_TOGGLE;
+		}
 		
 		if( y < 515  &&  y > 99){
 			for(unsigned int i = 0 ; i < channelBoxes.size() ; i++){
@@ -1046,6 +1085,9 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		
 		if(x > DMICONX && x < DMICONX2 && y > DMICONY && y < DMICONY2){
 			return CLICKED_DM_ICON;
+		}
+		if(x > VOICEICONX && x < VOICEICONX2 && y > VOICEICONY && y < VOICEICONY2){
+			return CLICKED_VOICE_CHANNELS_TOGGLE;
 		}
 		
 		if( x > inputboxMessageInput.x && y < inputboxMessageInput.x + inputboxMessageInput.w){
@@ -1198,6 +1240,9 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		
 		if(x > DMICONX && x < DMICONX2 && y > DMICONY && y < DMICONY2){
 			return CLICKED_DM_ICON;
+		}
+		if(x > 880 && x < 950 && y > 40 && y < 70){
+			return CLICKED_DIRECT_CALL_START;
 		}
 		
 		
@@ -1368,7 +1413,8 @@ void VitaGUI::setChannelBoxes(){
 	channelBoxes.clear();
 	int amount = 0;
 	for(unsigned int i = 0; i < discordPtr->guilds[discordPtr->currentGuild].channels.size() ; i++){
-		if(discordPtr->guilds[discordPtr->currentGuild].channels[i].type == 0 && discordPtr->guilds[discordPtr->currentGuild].channels[i].readallowed){
+		int expectedType = showingVoiceChannels ? 2 : 0;
+		if(discordPtr->guilds[discordPtr->currentGuild].channels[i].type == expectedType && discordPtr->guilds[discordPtr->currentGuild].channels[i].readallowed){
 			channelBox boxC;
 			boxC.x = channelScrollX ;
 			boxC.y = 100 + channelScrollY + amount * CHANNEL_HEIGHT;

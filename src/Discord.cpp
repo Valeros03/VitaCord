@@ -980,7 +980,7 @@ void * Discord::thread_loadData(void *arg){
 
 									logSD(" current json object was not null.");
 									try {
-										if(!j_complete[c]["type"].is_null()){
+										if(j_complete[c].find("type") != j_complete[c].end() && !j_complete[c]["type"].is_null()){
 											logSD("parsing type, which was not null");
 											if (j_complete[c]["type"].is_string()) {
 												discordPtr->guilds[i].channels[c].type = std::stoi(j_complete[c]["type"].get<std::string>());
@@ -997,7 +997,7 @@ void * Discord::thread_loadData(void *arg){
 										discordPtr->guilds[i].channels[c].type = 0;
 									}
 
-									if(!j_complete[c]["id"].is_null()){
+									if(j_complete[c].find("id") != j_complete[c].end() && !j_complete[c]["id"].is_null()){
 										logSD("parsing id, which was not null");
 										discordPtr->guilds[i].channels[c].id = j_complete[c]["id"].get<std::string>();
 										logSD(discordPtr->guilds[i].channels[c].id);
@@ -1007,7 +1007,7 @@ void * Discord::thread_loadData(void *arg){
 										logSD(discordPtr->guilds[i].channels[c].id);
 									}
 
-									if(!j_complete[c]["name"].is_null()){
+									if(j_complete[c].find("name") != j_complete[c].end() && !j_complete[c]["name"].is_null()){
 										logSD("parsing name, which was not null");
 										discordPtr->guilds[i].channels[c].name = j_complete[c]["name"].get<std::string>();
 										logSD(discordPtr->guilds[i].channels[c].name);
@@ -1017,7 +1017,7 @@ void * Discord::thread_loadData(void *arg){
 										logSD(discordPtr->guilds[i].channels[c].name);
 									}
 
-									if(!j_complete[c]["topic"].is_null()){
+									if(j_complete[c].find("topic") != j_complete[c].end() && !j_complete[c]["topic"].is_null()){
 										logSD("parsing topic, which was not null");
 										discordPtr->guilds[i].channels[c].topic = j_complete[c]["topic"].get<std::string>();
 										logSD(discordPtr->guilds[i].channels[c].topic);
@@ -1027,7 +1027,7 @@ void * Discord::thread_loadData(void *arg){
 										logSD(discordPtr->guilds[i].channels[c].topic);
 									}
 
-									if(!j_complete[c]["is_private"].is_null()){
+									if(j_complete[c].find("is_private") != j_complete[c].end() && !j_complete[c]["is_private"].is_null()){
 										logSD("parsing is_private, which was not null");
 										discordPtr->guilds[i].channels[c].is_private = j_complete[c]["is_private"].get<bool>();
 										logSD(std::to_string(discordPtr->guilds[i].channels[c].is_private));
@@ -1037,7 +1037,7 @@ void * Discord::thread_loadData(void *arg){
 										logSD(std::to_string(discordPtr->guilds[i].channels[c].is_private));
 									}
 
-									if(!j_complete[c]["last_message_id"].is_null()){
+									if(j_complete[c].find("last_message_id") != j_complete[c].end() && !j_complete[c]["last_message_id"].is_null()){
 										logSD("parsing last_message_id, which was not null");
 										discordPtr->guilds[i].channels[c].last_message_id = j_complete[c]["last_message_id"].get<std::string>();
 										logSD(discordPtr->guilds[i].channels[c].last_message_id);
@@ -1047,7 +1047,7 @@ void * Discord::thread_loadData(void *arg){
 										logSD(discordPtr->guilds[i].channels[c].last_message_id);
 									}
 
-									if(!j_complete[c]["permission_overwrites"].is_null()){
+									if(j_complete[c].find("permission_overwrites") != j_complete[c].end() && !j_complete[c]["permission_overwrites"].is_null()){
 
 										logSD("parsing permission_overwrites , which was not null");
 										int p = j_complete[c]["permission_overwrites"].size();
@@ -1055,7 +1055,7 @@ void * Discord::thread_loadData(void *arg){
 										for(int per = 0; per < p; per++){
 											discordPtr->guilds[i].channels[c].permission_overwrites.push_back(permission_overwrite());
 											try {
-												if(!j_complete[c]["permission_overwrites"][per]["allow"].is_null()){
+												if(j_complete[c]["permission_overwrites"][per].find("allow") != j_complete[c]["permission_overwrites"][per].end() && !j_complete[c]["permission_overwrites"][per]["allow"].is_null()){
 													if (j_complete[c]["permission_overwrites"][per]["allow"].is_string()) {
 														discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = std::stoull(j_complete[c]["permission_overwrites"][per]["allow"].get<std::string>());
 													} else {
@@ -1068,20 +1068,20 @@ void * Discord::thread_loadData(void *arg){
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = 0;
 											}
 
-											if(!j_complete[c]["permission_overwrites"][per]["type"].is_null()){
+											if(j_complete[c]["permission_overwrites"][per].find("type") != j_complete[c]["permission_overwrites"][per].end() && !j_complete[c]["permission_overwrites"][per]["type"].is_null()){
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].type = j_complete[c]["permission_overwrites"][per]["type"].get<std::string>();
 											}else{
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].type = "role";
 											}
 
-											if(!j_complete[c]["permission_overwrites"][per]["id"].is_null()){
+											if(j_complete[c]["permission_overwrites"][per].find("id") != j_complete[c]["permission_overwrites"][per].end() && !j_complete[c]["permission_overwrites"][per]["id"].is_null()){
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].id = j_complete[c]["permission_overwrites"][per]["id"].get<std::string>();
 											}else{
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].id = "0";
 											}
 
 											try {
-												if(!j_complete[c]["permission_overwrites"][per]["deny"].is_null()){
+												if(j_complete[c]["permission_overwrites"][per].find("deny") != j_complete[c]["permission_overwrites"][per].end() && !j_complete[c]["permission_overwrites"][per]["deny"].is_null()){
 													if (j_complete[c]["permission_overwrites"][per]["deny"].is_string()) {
 														discordPtr->guilds[i].channels[c].permission_overwrites[per].deny = std::stoull(j_complete[c]["permission_overwrites"][per]["deny"].get<std::string>());
 													} else {

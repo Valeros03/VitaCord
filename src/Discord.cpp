@@ -979,14 +979,22 @@ void * Discord::thread_loadData(void *arg){
 								if(!j_complete[c].is_null()){
 
 									logSD(" current json object was not null.");
-									if(!j_complete[c]["type"].is_null()){
-										logSD("parsing type, which was not null");
-										discordPtr->guilds[i].channels[c].type = j_complete[c]["type"].get<int>();
-										logSD(std::to_string(discordPtr->guilds[i].channels[c].type));
-									}else{
-										logSD("setting type = 0 because json.type was null");
+									try {
+										if(!j_complete[c]["type"].is_null()){
+											logSD("parsing type, which was not null");
+											if (j_complete[c]["type"].is_string()) {
+												discordPtr->guilds[i].channels[c].type = std::stoi(j_complete[c]["type"].get<std::string>());
+											} else {
+												discordPtr->guilds[i].channels[c].type = j_complete[c]["type"].get<int>();
+											}
+											logSD(std::to_string(discordPtr->guilds[i].channels[c].type));
+										}else{
+											logSD("setting type = 0 because json.type was null");
+											discordPtr->guilds[i].channels[c].type = 0;
+											logSD(std::to_string(discordPtr->guilds[i].channels[c].type));
+										}
+									} catch(const std::exception& e) {
 										discordPtr->guilds[i].channels[c].type = 0;
-										logSD(std::to_string(discordPtr->guilds[i].channels[c].type));
 									}
 
 									if(!j_complete[c]["id"].is_null()){
@@ -1046,10 +1054,17 @@ void * Discord::thread_loadData(void *arg){
 										discordPtr->guilds[i].channels[c].permission_overwrites.clear();
 										for(int per = 0; per < p; per++){
 											discordPtr->guilds[i].channels[c].permission_overwrites.push_back(permission_overwrite());
-											if(!j_complete[c]["permission_overwrites"][per]["allow"].is_null()){
-												discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = j_complete[c]["permission_overwrites"][per]["allow"].get<int>();
-
-											}else{
+											try {
+												if(!j_complete[c]["permission_overwrites"][per]["allow"].is_null()){
+													if (j_complete[c]["permission_overwrites"][per]["allow"].is_string()) {
+														discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = std::stoull(j_complete[c]["permission_overwrites"][per]["allow"].get<std::string>());
+													} else {
+														discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = j_complete[c]["permission_overwrites"][per]["allow"].get<uint64_t>();
+													}
+												}else{
+													discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = 0;
+												}
+											} catch(const std::exception& e) {
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].allow = 0;
 											}
 
@@ -1065,9 +1080,17 @@ void * Discord::thread_loadData(void *arg){
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].id = "0";
 											}
 
-											if(!j_complete[c]["permission_overwrites"][per]["deny"].is_null()){
-												discordPtr->guilds[i].channels[c].permission_overwrites[per].deny = j_complete[c]["permission_overwrites"][per]["deny"].get<int>();
-											}else{
+											try {
+												if(!j_complete[c]["permission_overwrites"][per]["deny"].is_null()){
+													if (j_complete[c]["permission_overwrites"][per]["deny"].is_string()) {
+														discordPtr->guilds[i].channels[c].permission_overwrites[per].deny = std::stoull(j_complete[c]["permission_overwrites"][per]["deny"].get<std::string>());
+													} else {
+														discordPtr->guilds[i].channels[c].permission_overwrites[per].deny = j_complete[c]["permission_overwrites"][per]["deny"].get<uint64_t>();
+													}
+												}else{
+													discordPtr->guilds[i].channels[c].permission_overwrites[per].deny = 0;
+												}
+											} catch(const std::exception& e) {
 												discordPtr->guilds[i].channels[c].permission_overwrites[per].deny = 0;
 											}
 

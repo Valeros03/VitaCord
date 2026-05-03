@@ -68,10 +68,10 @@ class Discord{
 			std::unordered_map<std::string, std::string> mentionsMap; 
 		}message;
 		typedef struct{
-			int allow;
+			uint64_t allow;
 			std::string type;
 			std::string id;
-			int deny;
+			uint64_t deny;
 		} permission_overwrite;
 		typedef struct {
 			std::string name;

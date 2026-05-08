@@ -289,15 +289,15 @@ VitaGUI::VitaGUI(){
 	}
 	
 	
-	videoStreamer = nullptr;
-    isVideoCallActive = false;
+	//videoStreamer = nullptr;
+//    isVideoCallActive = false;
     
     // Creiamo una texture vuota in cui copieremo i frame del decoder
-    videoTexture = vita2d_create_empty_texture_format(
-        480, 272, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_RGBA
-    );
+    //videoTexture = vita2d_create_empty_texture_format(
+    //    480, 272, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_RGBA
+//    );
     // Impostiamo il filtro bilineare se vogliamo scalarlo
-    vita2d_texture_set_filters(videoTexture, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
+    //vita2d_texture_set_filters(videoTexture, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
 	connectedVoiceChannelIndex = -1;
 	
 }
@@ -480,9 +480,9 @@ VitaGUI::~VitaGUI(){
 	vita2d_free_font(vita2dFontBig);
 
 	StopVideoCall();
-    if (videoTexture) {
-        vita2d_free_texture(videoTexture);
-    }
+    //if (videoTexture) {
+        //vita2d_free_texture(videoTexture);
+    //}
 	//vita2d_free_pgf(pgf);
 }
 void VitaGUI::updateBoxes(){
@@ -1117,13 +1117,13 @@ if (y < 515 && y > 99 && x < 230) {
                     // Confrontiamo gli INDEX interi
                     if (this->connectedVoiceChannelIndex == channelBoxes[i].channelIndex) {
                         
-                        this->StartVideoCall(5000); 
+                        //this->StartVideoCall(5000);
                         return -1; // Blocca il ritentativo di connessione
                         
                     } else {
                         // Nuovo canale vocale
                         this->connectedVoiceChannelIndex = channelBoxes[i].channelIndex;
-                        this->StartVideoCall(5000);
+                        //this->StartVideoCall(5000);
                         return channelBoxes[i].channelIndex;
                     }
                 } 
@@ -1186,13 +1186,13 @@ if (y < 515 && y > 99 && x < 230) {
 							// Confrontiamo gli INDEX interi
 							if (this->connectedVoiceChannelIndex == channelBoxes[i].channelIndex) {
 								
-								this->StartVideoCall(5000); 
+								//this->StartVideoCall(5000);
 								return -1; // Blocca il ritentativo di connessione
 								
 							} else {
 								// Nuovo canale vocale
 								this->connectedVoiceChannelIndex = channelBoxes[i].channelIndex;
-								this->StartVideoCall(5000);
+								//this->StartVideoCall(5000);
 								return channelBoxes[i].channelIndex;
 							}
 						} 
@@ -2131,55 +2131,55 @@ void VitaGUI::DrawDirectMessageMessages(){
 /*-----------------VIDEO CALL METHODS-------------------------------------*/
 void VitaGUI::StartVideoCall(int port) {
     debugNetPrintf(DEBUG, "[GUI] StartVideoCall invocata sulla porta %d\n", port);
-    if (videoStreamer != nullptr) {
+    //if (videoStreamer != nullptr) {
         debugNetPrintf(DEBUG, "[GUI] Lo streamer è già attivo, ignoro.\n");
-        return; 
-    }
+//        return;
+    //}
 
     debugNetPrintf(DEBUG, "[GUI] Instanziazione VitaCordStreamer...\n");
-    videoStreamer = new VitaCordStreamer(port);
+    //videoStreamer = new VitaCordStreamer(port);
     
     debugNetPrintf(DEBUG, "[GUI] Chiamata a Initialize()...\n");
-    if (videoStreamer->Initialize()) {
+    //if (videoStreamer->Initialize()) {
         debugNetPrintf(DEBUG, "[GUI] Initialize() OK. Avvio thread...\n");
-        videoStreamer->Start();
-        isVideoCallActive = true;
+        //videoStreamer->Start();
+//        isVideoCallActive = true;
         debugNetPrintf(DEBUG, "[GUI] Video Call avviata con successo!\n");
-    } else {
+    //} else {
         debugNetPrintf(DEBUG, "[GUI] ERRORE: Initialize() ha fallito!\n");
-        delete videoStreamer;
-        videoStreamer = nullptr;
-    }
+        //delete videoStreamer;
+        //videoStreamer = nullptr;
+    //}
 }
 
 void VitaGUI::StopVideoCall() {
-    isVideoCallActive = false;
-    if (videoStreamer != nullptr) {
-        videoStreamer->Stop();
-        delete videoStreamer;
-        videoStreamer = nullptr;
-    }
+//    isVideoCallActive = false;
+    //if (videoStreamer != nullptr) {
+        //videoStreamer->Stop();
+        //delete videoStreamer;
+        //videoStreamer = nullptr;
+    //}
 }
 
 void VitaGUI::DrawVideoCall() {
-    if (!isVideoCallActive || !videoStreamer || !videoTexture) return;
+    //if (!isVideoCallActive || !videoStreamer || !videoTexture) return;
 
-    void* frameData = videoStreamer->GetLatestFrame();
-    if (frameData) {
-        void* texData = vita2d_texture_get_datap(videoTexture);
-        memcpy(texData, frameData, 480 * 272 * 4);
-    }
+    //void* frameData = videoStreamer->GetLatestFrame();
+    //if (frameData) {
+        //void* texData = vita2d_texture_get_datap(videoTexture);
+        //memcpy(texData, frameData, 480 * 272 * 4);
+    //}
 
     // Posizionamento: Se siamo nella lista canali (state 3), 
     // lo mettiamo a destra per lasciare libera la sidebar
-    int posX = 240; 
-    int posY = 120;
+    //int posX = 240;
+    //int posY = 120;
 
     // Disegnamo un'ombra o un bordo per staccarlo dalla UI
-    vita2d_draw_rectangle(posX - 5, posY - 5, 490, 282, RGBA8(30, 33, 36, 255));
-    vita2d_draw_texture(videoTexture, posX, posY);
+    //vita2d_draw_rectangle(posX - 5, posY - 5, 490, 282, RGBA8(30, 33, 36, 255));
+    //vita2d_draw_texture(videoTexture, posX, posY);
     
-    vita2d_font_draw_text(vita2dFont[15], posX + 10, posY + 260, RGBA8(255, 255, 255, 255), 15, "LIVE STREAM");
+    //vita2d_font_draw_text(vita2dFont[15], posX + 10, posY + 260, RGBA8(255, 255, 255, 255), 15, "LIVE STREAM");
 }
 
 

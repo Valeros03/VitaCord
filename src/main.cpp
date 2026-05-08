@@ -6,8 +6,8 @@
 
 
 
-#define DEBUGNET_IP "192.168.1.12"
-#define DEBUGNET_PORT 12131
+#define DEBUGNET_IP "192.168.1.24"
+#define DEBUGNET_PORT 18194
 /* debug types
 NONE 0
 INFO 1

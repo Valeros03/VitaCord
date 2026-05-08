@@ -289,14 +289,17 @@ VitaGUI::VitaGUI(){
 	}
 	
 	
+	videoStreamer = nullptr;
+    isVideoCallActive = false;
+    
+    // Creiamo una texture vuota in cui copieremo i frame del decoder
+    videoTexture = vita2d_create_empty_texture_format(
+        480, 272, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_RGBA
+    );
+    // Impostiamo il filtro bilineare se vogliamo scalarlo
+    vita2d_texture_set_filters(videoTexture, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
+	connectedVoiceChannelIndex = -1;
 	
-	loadEmojiFiles();
-	
-	
-	
-}
-void VitaGUI::loadEmojiFiles(){
-
 }
 
 void* VitaGUI::downloadImageWrapper(void* arg) {
@@ -475,6 +478,11 @@ VitaGUI::~VitaGUI(){
 	vita2d_free_font(vita2dFontSmall);
 	vita2d_free_font(vita2dFontNormal);
 	vita2d_free_font(vita2dFontBig);
+
+	StopVideoCall();
+    if (videoTexture) {
+        vita2d_free_texture(videoTexture);
+    }
 	//vita2d_free_pgf(pgf);
 }
 void VitaGUI::updateBoxes(){
@@ -549,6 +557,7 @@ void VitaGUI::Draw(){
 		//COMMENT debugNetPrintf(DEBUG, "Call SetChannel+MessageBoxes()\n");
 		setChannelBoxes();
 		setMessageBoxes();
+		
 	}else if(state == 6){
 		
 		//COMMENT debugNetPrintf(DEBUG, "Call SetDMBoxes()\n");
@@ -691,34 +700,25 @@ void VitaGUI::Draw(){
 		
 	}else if(state == 4){
 		vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(54, 57, 62, 255)); // Background
-		
-		
-		/// SIDEPANEL
-		// BG
-		vita2d_draw_rectangle(0, 30, 230, 449, RGBA8(46, 49, 54, 255));
-		
-		
-		
-		//CHANNELS AND AFTER THAT MESSAGES
-		
-		DrawChannelsOnSidebar();
-		
-		// MESSAGES
-		DrawMessages();
-		
-		
-		// DELETEMSG
-		if(clickedMessage){
-			vita2d_draw_rectangle(editMessageBox.x , messageScrollY + editMessageBox.y , editMessageBox.w , editMessageBox.h , RGBA8(0 , 0 , 0 , 255));
+        
+        /// SIDEPANEL
+        vita2d_draw_rectangle(0, 30, 230, 449, RGBA8(46, 49, 54, 255));
+        
+        // CHANNELS
+        DrawChannelsOnSidebar();
+        
+
+        // DELETEMSG
+        if(clickedMessage && !isVideoCallActive) {
+           	vita2d_draw_rectangle(editMessageBox.x , messageScrollY + editMessageBox.y , editMessageBox.w , editMessageBox.h , RGBA8(0 , 0 , 0 , 255));
 			vita2d_font_draw_text(vita2dFont[25] , editMessageBox.x + 64 , messageScrollY + editMessageBox.y + editMessageBox.h - 8 , RGBA8(0,255,0,255), 25 , "Edit"); 
 			vita2d_draw_rectangle(deleteMessageBox.x , messageScrollY + deleteMessageBox.y , deleteMessageBox.w , deleteMessageBox.h , RGBA8(0 , 0 , 0 , 255));
 			vita2d_font_draw_text(vita2dFont[25] , deleteMessageBox.x + 64 , messageScrollY + deleteMessageBox.y + deleteMessageBox.h - 8, RGBA8(255,0,0,255), 25 , "Delete"); 
 		}
-		
-		
-		if(showCallStrip) {
-		    DrawCallStrip();
-		}
+
+        if(showCallStrip) {
+            DrawCallStrip();
+        }
 
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
@@ -798,9 +798,7 @@ void VitaGUI::Draw(){
 	}else if(state == 7){
 		vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(54, 57, 62, 255)); // Background
 			
-			
-		/// SIDEPANEL
-		// BG
+		
 		vita2d_draw_rectangle(0, 30, 230, 449, RGBA8(46, 49, 54, 255));
 		
 		DrawDirectMessageUsersOnSidebar();
@@ -857,6 +855,13 @@ void VitaGUI::Draw(){
 		}
 	}
 
+
+	if (isVideoCallActive) {
+        // Disegniamo il video in tutti gli stati TRANNE che nella chat testuale pura
+        if (state != 4) {
+            DrawVideoCall(); 
+        }
+    }
 	
 	vita2d_end_drawing();
 	vita2d_swap_buffers();
@@ -1087,22 +1092,58 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		}
 		
 		if (showCallStrip) {
-		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
-		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
-		            return CLICKED_DISCONNECT_VOICE;
-		        }
-		    }
-		}
+            if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+                if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+                    
+                    if (this->isVideoCallActive) {
+                        this->StopVideoCall();
+                    }
+                    
+                    // Resetta l'indice del canale vocale!
+                    this->connectedVoiceChannelIndex = -1; 
 
-		if( y < 515  &&  y > 99){
-			for(unsigned int i = 0 ; i < channelBoxes.size() ; i++){
-				if( x  > channelBoxes[i].x && x  < channelBoxes[i].x + channelBoxes[i].w){
-					if( y  > channelBoxes[i].y && y  < channelBoxes[i].y + channelBoxes[i].h){
-						return channelBoxes[i].channelIndex;
-					}
-				}
-			}
-		}
+                    return CLICKED_DISCONNECT_VOICE;
+                }
+            }
+        }
+
+		// All'interno di VitaGUI::click, sezione state == 3 o state == 4
+		// All'interno di VitaGUI::click() (per state == 3 e state == 4)
+
+if (y < 515 && y > 99 && x < 230) {
+    for (unsigned int i = 0; i < channelBoxes.size(); i++) {
+        if (x > channelBoxes[i].x && x < channelBoxes[i].x + channelBoxes[i].w) {
+            if (y > channelBoxes[i].y && y < channelBoxes[i].y + channelBoxes[i].h) {
+                
+                // --- LOGICA SINCRONIZZAZIONE AUDIO/VIDEO ---
+                
+                if (channelBoxes[i].type == 2) { 
+                    // È UN CANALE VOCALE
+                    // Confrontiamo gli INDEX interi
+                    if (this->connectedVoiceChannelIndex == channelBoxes[i].channelIndex) {
+                        
+                        this->StartVideoCall(5000); 
+                        return -1; // Blocca il ritentativo di connessione
+                        
+                    } else {
+                        // Nuovo canale vocale
+                        this->connectedVoiceChannelIndex = channelBoxes[i].channelIndex;
+                        this->StartVideoCall(5000);
+                        return channelBoxes[i].channelIndex;
+                    }
+                } 
+                else if (channelBoxes[i].type == 0) {
+                    // È UN CANALE TESTUALE
+                    this->StopVideoCall();
+                    return channelBoxes[i].channelIndex;
+                }
+                
+                // Per tutti gli altri tipi di canale (es. Categorie)
+                return channelBoxes[i].channelIndex;
+            }
+        }
+    }
+}
 	}else if(state == 4){
 		
 		
@@ -1114,12 +1155,20 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		}
 		
 		if (showCallStrip) {
-		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
-		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
-		            return CLICKED_DISCONNECT_VOICE;
-		        }
-		    }
-		}
+            if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+                if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+                    
+                    if (this->isVideoCallActive) {
+                        this->StopVideoCall();
+                    }
+                    
+                    // Resetta l'indice del canale vocale!
+                    this->connectedVoiceChannelIndex = -1; 
+
+                    return CLICKED_DISCONNECT_VOICE;
+                }
+            }
+        }
 
 		if( x > inputboxMessageInput.x && y < inputboxMessageInput.x + inputboxMessageInput.w){
 			if( y > inputboxMessageInput.y && y < inputboxMessageInput.y + inputboxMessageInput.h){
@@ -1127,10 +1176,38 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 			}
 		}
 		
-		if( y < 515  &&  y > 99 && x < 230){
-			for(unsigned int i = 0 ; i < channelBoxes.size() ; i++){
-				if( x  > channelBoxes[i].x && x  < channelBoxes[i].x + channelBoxes[i].w){
-					if( y  > channelBoxes[i].y && y  < channelBoxes[i].y + channelBoxes[i].h){
+		// All'interno di VitaGUI::click, sezione state == 3 o state == 4
+		// All'interno di VitaGUI::click() (per state == 3 e state == 4)
+
+		if (y < 515 && y > 99 && x < 230) {
+			for (unsigned int i = 0; i < channelBoxes.size(); i++) {
+				if (x > channelBoxes[i].x && x < channelBoxes[i].x + channelBoxes[i].w) {
+					if (y > channelBoxes[i].y && y < channelBoxes[i].y + channelBoxes[i].h) {
+						
+						// --- LOGICA SINCRONIZZAZIONE AUDIO/VIDEO ---
+						
+						if (channelBoxes[i].type == 2) { 
+							// È UN CANALE VOCALE
+							// Confrontiamo gli INDEX interi
+							if (this->connectedVoiceChannelIndex == channelBoxes[i].channelIndex) {
+								
+								this->StartVideoCall(5000); 
+								return -1; // Blocca il ritentativo di connessione
+								
+							} else {
+								// Nuovo canale vocale
+								this->connectedVoiceChannelIndex = channelBoxes[i].channelIndex;
+								this->StartVideoCall(5000);
+								return channelBoxes[i].channelIndex;
+							}
+						} 
+						else if (channelBoxes[i].type == 0) {
+							// È UN CANALE TESTUALE
+							this->StopVideoCall();
+							return channelBoxes[i].channelIndex;
+						}
+						
+						// Per tutti gli altri tipi di canale (es. Categorie)
 						return channelBoxes[i].channelIndex;
 					}
 				}
@@ -1259,12 +1336,20 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		}
 		
 		if (showCallStrip) {
-		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
-		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
-		            return CLICKED_DISCONNECT_VOICE;
-		        }
-		    }
-		}
+            if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+                if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+                    
+                    if (this->isVideoCallActive) {
+                        this->StopVideoCall();
+                    }
+                    
+                    // Resetta l'indice del canale vocale!
+                    this->connectedVoiceChannelIndex = -1; 
+
+                    return CLICKED_DISCONNECT_VOICE;
+                }
+            }
+        }
 
 		if( y < 515  &&  y > 99){
 			for(unsigned int i = 0 ; i < directMessageBoxes.size() ; i++){
@@ -1285,13 +1370,21 @@ int VitaGUI::click(int x , int y, uint64_t duration){
 		}
 		
 		if (showCallStrip) {
-		    if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
-		        if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
-		            return CLICKED_DISCONNECT_VOICE;
-		        }
-		    }
-		}
-		
+            if (x > disconnectButtonRect.x && x < disconnectButtonRect.x + disconnectButtonRect.w) {
+                if (y > disconnectButtonRect.y && y < disconnectButtonRect.y + disconnectButtonRect.h) {
+                    
+                    if (this->isVideoCallActive) {
+                        this->StopVideoCall();
+                    }
+                    
+                    // Resetta l'indice del canale vocale!
+                    this->connectedVoiceChannelIndex = -1; 
+
+                    return CLICKED_DISCONNECT_VOICE;
+                }
+            }
+        }
+
 		if( x > inputboxMessageInput.x && y < inputboxMessageInput.x + inputboxMessageInput.w){
 			if( y > inputboxMessageInput.y && y < inputboxMessageInput.y + inputboxMessageInput.h){
 				return CLICKED_MESSAGE_INPUT;
@@ -1468,6 +1561,7 @@ void VitaGUI::setChannelBoxes(){
 			boxC.h = CHANNEL_HEIGHT;
 			boxC.channelIndex = i;
 			boxC.name = discordPtr->guilds[discordPtr->currentGuild].channels[i].name;
+			boxC.type = discordPtr->guilds[discordPtr->currentGuild].channels[i].type;
 			channelBoxes.push_back(boxC);
 			amount++;
 		}
@@ -2036,6 +2130,62 @@ void VitaGUI::DrawDirectMessageMessages(){
 	
 }
 
+
+
+
+/*-----------------VIDEO CALL METHODS-------------------------------------*/
+void VitaGUI::StartVideoCall(int port) {
+    debugNetPrintf(DEBUG, "[GUI] StartVideoCall invocata sulla porta %d\n", port);
+    if (videoStreamer != nullptr) {
+        debugNetPrintf(DEBUG, "[GUI] Lo streamer è già attivo, ignoro.\n");
+        return; 
+    }
+
+    debugNetPrintf(DEBUG, "[GUI] Instanziazione VitaCordStreamer...\n");
+    videoStreamer = new VitaCordStreamer(port);
+    
+    debugNetPrintf(DEBUG, "[GUI] Chiamata a Initialize()...\n");
+    if (videoStreamer->Initialize()) {
+        debugNetPrintf(DEBUG, "[GUI] Initialize() OK. Avvio thread...\n");
+        videoStreamer->Start();
+        isVideoCallActive = true;
+        debugNetPrintf(DEBUG, "[GUI] Video Call avviata con successo!\n");
+    } else {
+        debugNetPrintf(DEBUG, "[GUI] ERRORE: Initialize() ha fallito!\n");
+        delete videoStreamer;
+        videoStreamer = nullptr;
+    }
+}
+
+void VitaGUI::StopVideoCall() {
+    isVideoCallActive = false;
+    if (videoStreamer != nullptr) {
+        videoStreamer->Stop();
+        delete videoStreamer;
+        videoStreamer = nullptr;
+    }
+}
+
+void VitaGUI::DrawVideoCall() {
+    if (!isVideoCallActive || !videoStreamer || !videoTexture) return;
+
+    void* frameData = videoStreamer->GetLatestFrame();
+    if (frameData) {
+        void* texData = vita2d_texture_get_datap(videoTexture);
+        memcpy(texData, frameData, 480 * 272 * 4);
+    }
+
+    // Posizionamento: Se siamo nella lista canali (state 3), 
+    // lo mettiamo a destra per lasciare libera la sidebar
+    int posX = 240; 
+    int posY = 120;
+
+    // Disegnamo un'ombra o un bordo per staccarlo dalla UI
+    vita2d_draw_rectangle(posX - 5, posY - 5, 490, 282, RGBA8(30, 33, 36, 255));
+    vita2d_draw_texture(videoTexture, posX, posY);
+    
+    vita2d_font_draw_text(vita2dFont[15], posX + 10, posY + 260, RGBA8(255, 255, 255, 255), 15, "LIVE STREAM");
+}
 
 
 

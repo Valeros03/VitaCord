@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <locale>
+#include "VitaCordStreamer.h"
 
 #define MAX_DRAW_HEIGHT 550
 #define MIN_DRAW_HEIGHT -800
@@ -102,6 +103,8 @@ class VitaGUI{
 		
 		void handleUrlClick(const std::string& urlStr);
 		void setUserInfo();
+
+		int connectedVoiceChannelIndex;
 		
 		std::string downloadNotificationText = "";
 		int notificationTimer = 0;
@@ -127,6 +130,14 @@ class VitaGUI{
 		vita2d_texture * texA ;
 		vita2d_texture * texB;
 		vita2d_texture * texC;
+
+		VitaCordStreamer* videoStreamer;
+		vita2d_texture* videoTexture;
+		bool isVideoCallActive;
+		
+		void StartVideoCall(int port);
+		void StopVideoCall();
+		void DrawVideoCall();
 	
 	private:
 		
@@ -229,7 +240,7 @@ class VitaGUI{
 		
 		std::string panelUsername , panelUserDiscriminator;
 		
-	
+		
 	
 };
 

@@ -102,6 +102,7 @@ typedef struct{
 	int h;
 	int channelIndex;
 	std::string name;
+	short type;
 }channelBox;
 
 

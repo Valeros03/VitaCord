@@ -49,6 +49,7 @@ add_executable(${SHORT_NAME}.elf
   src/VitaIME.cpp
   src/VitaPad.cpp
   src/VitaTouch.cpp
+  src/VitaCordStreamer.cpp
 )
 
 target_link_libraries(${SHORT_NAME}.elf
@@ -72,7 +73,8 @@ target_link_libraries(${SHORT_NAME}.elf
   SceCommonDialog_stub
   SceRegistryMgr_stub
   ScePhotoExport_stub
-  
+  SceVideodec_stub 
+
   # Librerie "pesanti"
   ${CURL_LIBRARIES}
   ${OPENSSL_LIBRARIES}
@@ -91,7 +93,7 @@ target_link_libraries(${SHORT_NAME}.elf
 )
 
 
-vita_create_self(${SHORT_NAME}.self ${SHORT_NAME}.elf)
+vita_create_self(${SHORT_NAME}.self ${SHORT_NAME}.elf UNSAFE)
 
 vita_create_vpk(${SHORT_NAME}.vpk ${VITA_TITLEID} ${SHORT_NAME}.self
   VERSION ${VITA_VERSION}

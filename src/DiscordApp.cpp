@@ -7,6 +7,7 @@
 #include <debugnet.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/dirent.h>
+
 #include "key.h"
 
 
@@ -192,6 +193,37 @@ void DiscordApp::Start(){
 	logSD("check voice state");
 	CheckVoiceState();
 	logSD("start program loop");
+
+
+/*---------------VIDEOCALL LOAD MODULE----------------------------------------------------------------------------------*/
+
+
+// 1. CARICA IL MODULO HARDWARE IN MEMORIA (FONDAMENTALE)
+    // Prima dell'inizializzazione hardware:
+    debugNetPrintf(DEBUG, "[MAIN] Sto per caricare SCE_SYSMODULE_AVCDEC...\n");
+    int modRes = sceSysmoduleLoadModule(SCE_SYSMODULE_AVCDEC);
+    debugNetPrintf(DEBUG, "[MAIN] sceSysmoduleLoadModule ha restituito: 0x%08X\n", modRes);
+
+    // Usiamo direttamente la struttura specifica richiesta da VitaSDK
+    SceVideodecQueryInitInfoHwAvcdec queryInitInfo;
+    memset(&queryInitInfo, 0, sizeof(queryInitInfo));
+    
+    // Configuriamo le specifiche massime che ci aspettiamo per questo progetto (480x272)
+    queryInitInfo.size = sizeof(SceVideodecQueryInitInfoHwAvcdec);
+    queryInitInfo.horizontal = 480; 
+    queryInitInfo.vertical = 272;   
+    queryInitInfo.numOfRefFrames = 3; 
+    queryInitInfo.numOfStreams = 1;
+
+    // Ora passiamo il puntatore della struttura corretta
+    debugNetPrintf(DEBUG, "[MAIN] Sto per chiamare sceVideodecInitLibrary...\n");
+    int videoDecRes = sceVideodecInitLibrary(SCE_VIDEODEC_TYPE_HW_AVCDEC, &queryInitInfo);
+    debugNetPrintf(DEBUG, "[MAIN] sceVideodecInitLibrary ha restituito: 0x%08X\n", videoDecRes);
+
+/*----------------------------------------------------------------------------------------------------------------------*/
+
+
+
 	for(;;){
 		
 		
@@ -470,7 +502,7 @@ void DiscordApp::CheckVoiceState(){
     if(resp.httpcode == 200){
         try{
             nlohmann::json parsed = nlohmann::json::parse(resp.body);
-            if(parsed.contains("status") && parsed["status"] == "connected"){
+            if(parsed.count("status") > 0 && parsed["status"] == "connected"){
                 vitaGUI.showCallStrip = true;
             }
         }catch(...){
@@ -479,68 +511,92 @@ void DiscordApp::CheckVoiceState(){
     }
 }
 
+void DiscordApp::OnVoiceChannelPressed(int channelIndex){
+    logSD("Voice channel pressed: " + std::to_string(channelIndex));
+
+    if(channelIndex >= 0 && static_cast<size_t>(channelIndex) < discord.guilds[discord.currentGuild].channels.size()){
+        std::string guild_id = discord.guilds[discord.currentGuild].id;
+        std::string channel_id = discord.guilds[discord.currentGuild].channels[channelIndex].id;
+
+        // 1. RICHIESTA HTTP: Diciamo al bot di entrare nel canale
+        nlohmann::json payload;
+        payload["guild_id"] = guild_id;
+        payload["channel_id"] = channel_id;
+
+        // Assicurati che API_PORT (7777) sia corretta per il server Python
+        std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":7777/api/join";
+        VitaNet::http_response resp = discord.vitaNet.curlDiscordPost(proxyUrl, payload.dump(), "");
+
+        if(resp.httpcode == 200){
+            debugNetPrintf(DEBUG, "✅ API OK: Il bot è entrato. Avvio microfono...\n");
+            
+            // 2. COMANDO TCP: Accendiamo il plugin
+            int s = sceNetSocket("VitaCordVoiceSocket", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
+            if (s >= 0) {
+                SceNetSockaddrIn serveraddr;
+                serveraddr.sin_family = SCE_NET_AF_INET;
+                serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
+                serveraddr.sin_port = sceNetHtons(VOICE_PLUGIN_PORT); // 9999
+
+                if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
+                    VitaCordCommand cmd;
+                    memset(&cmd, 0, sizeof(cmd)); // Pulizia memoria
+
+                    cmd.command = static_cast<uint32_t>(CMD_START_STREAMING);
+                    // Manda l'audio all'IP del server Python
+                    snprintf(cmd.target_ip, sizeof(cmd.target_ip), "%s", GO_SERVER_IP); 
+                    cmd.target_port = 5555; // Porta UDP
+                    
+                    sceNetSend(s, &cmd, sizeof(cmd), 0);
+                    debugNetPrintf(DEBUG, "✅ COMANDO TCP INVIATO AL PLUGIN!\n");
+                }
+                sceNetSocketClose(s);
+            }
+
+            // 3. Aggiorna interfaccia grafica
+            vitaGUI.showCallStrip = true;
+            vitaGUI.connectedVoiceChannelName = discord.guilds[discord.currentGuild].channels[channelIndex].name;
+        } else {
+            debugNetPrintf(DEBUG, "❌ ERRORE API: Il bot non è entrato (HTTP %d)\n", resp.httpcode);
+        }
+    }
+}
+
 void DiscordApp::LeaveVoiceChannel(){
     logSD("Leaving Voice Channel");
 
-    // Send command to plugin
+    // 1. COMANDO TCP: Spegniamo il microfono PRIMA di cacciare il bot
     int s = sceNetSocket("VitaCordVoiceSocket", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
     if (s >= 0) {
         SceNetSockaddrIn serveraddr;
         serveraddr.sin_family = SCE_NET_AF_INET;
         serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
-        serveraddr.sin_port = sceNetHtons(VOICE_PLUGIN_PORT);
+        serveraddr.sin_port = sceNetHtons(VOICE_PLUGIN_PORT); // 9999
 
         if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
             VitaCordCommand cmd;
-            cmd.command = CMD_STOP_STREAMING;
+            memset(&cmd, 0, sizeof(cmd));
+            cmd.command = static_cast<uint32_t>(CMD_STOP_STREAMING);
+
             sceNetSend(s, &cmd, sizeof(cmd), 0);
+            debugNetPrintf(DEBUG, "🛑 COMANDO TCP STOP INVIATO.\n");
         }
         sceNetSocketClose(s);
     }
 
-    // HTTP POST to Go Server
-    std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":" + GO_SERVER_PORT + "/api/leave";
-    discord.vitaNet.curlDiscordPost(proxyUrl, "{}", "");
+    // 2. RICHIESTA HTTP: Diciamo al bot di scollegarsi
+    if(discord.currentGuild >= 0 && discord.currentGuild < discord.guilds.size()){
+        std::string guild_id = discord.guilds[discord.currentGuild].id;
+        nlohmann::json payload;
+        payload["guild_id"] = guild_id;
+
+        std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":7777/api/leave";
+        discord.vitaNet.curlDiscordPost(proxyUrl, payload.dump(), "");
+    }
+
+    // 3. Nascondi interfaccia
     vitaGUI.showCallStrip = false;
-}
-
-void DiscordApp::OnVoiceChannelPressed(int channelIndex){
-	logSD("Voice channel pressed: " + std::to_string(channelIndex));
-
-	if(channelIndex >= 0 && channelIndex < discord.guilds[discord.currentGuild].channels.size()){
-	    std::string guild_id = discord.guilds[discord.currentGuild].id;
-	    std::string channel_id = discord.guilds[discord.currentGuild].channels[channelIndex].id;
-
-	    nlohmann::json payload;
-	    payload["guild_id"] = guild_id;
-	    payload["channel_id"] = channel_id;
-
-	    std::string proxyUrl = std::string("http://") + GO_SERVER_IP + ":" + GO_SERVER_PORT + "/api/join";
-	    VitaNet::http_response resp = discord.vitaNet.curlDiscordPost(proxyUrl, payload.dump(), "");
-
-	    if(resp.httpcode == 200){
-	        // Start streaming
-	        int s = sceNetSocket("VitaCordVoiceSocket", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
-            if (s >= 0) {
-                SceNetSockaddrIn serveraddr;
-                serveraddr.sin_family = SCE_NET_AF_INET;
-                serveraddr.sin_addr.s_addr = sceNetHtonl(0x7F000001); // 127.0.0.1
-                serveraddr.sin_port = sceNetHtons(VOICE_PLUGIN_PORT);
-
-                if (sceNetConnect(s, (SceNetSockaddr *)&serveraddr, sizeof(serveraddr)) >= 0) {
-                    VitaCordCommand cmd;
-                    cmd.command = CMD_START_STREAMING;
-                    snprintf(cmd.target_ip, sizeof(cmd.target_ip), "%s", GO_SERVER_IP);
-                    cmd.target_port = GO_SERVER_UDP_PORT;
-                    sceNetSend(s, &cmd, sizeof(cmd), 0);
-                }
-                sceNetSocketClose(s);
-            }
-
-	        vitaGUI.showCallStrip = true;
-	        vitaGUI.connectedVoiceChannelName = discord.guilds[discord.currentGuild].channels[channelIndex].name;
-	    }
-	}
+    vitaGUI.connectedVoiceChannelName = "";
 }
 
 void DiscordApp::OnDirectCallStart(){

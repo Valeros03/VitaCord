@@ -3,6 +3,8 @@
 
 
 #include <psp2/kernel/processmgr.h>
+#include <psp2/sysmodule.h>
+#include <cstdint>
 
 #include "VitaTouch.hpp"
 #include "VitaPad.hpp"
@@ -11,22 +13,24 @@
 #include "VitaGUI.hpp"
 
 #define GO_SERVER_IP "192.168.1.24"
-#define GO_SERVER_PORT "8080"
-#define GO_SERVER_UDP_PORT 5000
-#define VOICE_PLUGIN_PORT 9090
+#define GO_SERVER_PORT "7777"
+#define GO_SERVER_UDP_PORT 5555
+#define VOICE_PLUGIN_PORT 9999
 
-typedef enum {
+
+// 1. L'enum per mantenere il codice pulito e leggibile
+enum CommandType {
     CMD_STOP_STREAMING = 0,
     CMD_START_STREAMING = 1,
     CMD_SHUTDOWN_PLUGIN = 2
-} CommandType;
+};
 
-typedef struct {
-    CommandType command;
-    char target_ip[16]; // IP of the Go server
-    int target_port;    // UDP Port (usually 5000)
-} VitaCordCommand;
-
+// 2. La struttura di rete BLINDATA (Usa uint32_t per forzare i 4 byte esatti)
+struct __attribute__((packed)) VitaCordCommand {
+    uint32_t command;     // Forzato a 32 bit (4 byte)
+    char target_ip[16];   // Forzato a 16 byte
+    uint32_t target_port; // Forzato a 32 bit (4 byte)
+};
 
 class DiscordApp{
 	

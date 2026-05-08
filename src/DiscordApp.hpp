@@ -56,7 +56,7 @@ private:
     int vitaState = 0;
 
     void doLogin();
-    void getUserTokenInput();
+    void getBotTokenInput();
 
     void SendChannelMessage();
     void SendDirectMessage();

@@ -44,7 +44,7 @@ VitaNet::http_response VitaNet::curlDiscordDelete(std::string url , std::string 
 	VitaNet::http_response resp;
 	// Rimuove eventuali \r, \n o spazi finali dal token
 authtoken.erase(authtoken.find_last_not_of(" \n\r\t") + 1);
-std::string authorizationHeader = "Authorization: " + authtoken;
+std::string authorizationHeader = "Authorization: Bot " + authtoken;
 	
 	//DBG
 	//url = "http://jaynapps.com/psvita/httpdump.php";
@@ -141,7 +141,7 @@ VitaNet::http_response VitaNet::curlDiscordGet(std::string url , std::string aut
 	VitaNet::http_response resp;
 	// Rimuove eventuali \r, \n o spazi finali dal token
 authtoken.erase(authtoken.find_last_not_of(" \n\r\t") + 1);
-std::string authorizationHeader = "Authorization: " + authtoken;
+std::string authorizationHeader = "Authorization: Bot " + authtoken;
 	
 	//DBG
 	//url = "http://jaynapps.com/psvita/httpdump.php";
@@ -200,7 +200,7 @@ VitaNet::http_response VitaNet::curlDiscordPost(std::string url , std::string po
 	VitaNet::http_response resp;
 	// Rimuove eventuali \r, \n o spazi finali dal token
 authtoken.erase(authtoken.find_last_not_of(" \n\r\t") + 1);
-std::string authorizationHeader = "Authorization: " + authtoken;
+std::string authorizationHeader = "Authorization: Bot " + authtoken;
 	
 	CURL *curl;
 	CURLcode res;
@@ -257,7 +257,7 @@ VitaNet::http_response VitaNet::curlDiscordPatch(std::string url , std::string p
 	VitaNet::http_response resp;
 	// Rimuove eventuali \r, \n o spazi finali dal token
 authtoken.erase(authtoken.find_last_not_of(" \n\r\t") + 1);
-std::string authorizationHeader = "Authorization: " + authtoken;
+std::string authorizationHeader = "Authorization: Bot " + authtoken;
 	
 	//DBG
 	//url = "http://jaynapps.com/psvita/httpdump.php";
@@ -329,7 +329,7 @@ VitaNet::http_response  VitaNet::curlDiscordDownloadImage(std::string url , std:
 	VitaNet::http_response resp;
 	// Rimuove eventuali \r, \n o spazi finali dal token
 authtoken.erase(authtoken.find_last_not_of(" \n\r\t") + 1);
-std::string authorizationHeader = "Authorization: " + authtoken;
+std::string authorizationHeader = "Authorization: Bot " + authtoken;
 	
 	
 	int imageFD = sceIoOpen( file.c_str(), SCE_O_WRONLY | SCE_O_CREAT, 0777);

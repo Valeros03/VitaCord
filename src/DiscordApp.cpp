@@ -201,24 +201,24 @@ void DiscordApp::Start(){
 // 1. CARICA IL MODULO HARDWARE IN MEMORIA (FONDAMENTALE)
     // Prima dell'inizializzazione hardware:
     debugNetPrintf(DEBUG, "[MAIN] Sto per caricare SCE_SYSMODULE_AVCDEC...\n");
-    int modRes = sceSysmoduleLoadModule(SCE_SYSMODULE_AVCDEC);
-    debugNetPrintf(DEBUG, "[MAIN] sceSysmoduleLoadModule ha restituito: 0x%08X\n", modRes);
+//    int modRes = sceSysmoduleLoadModule(SCE_SYSMODULE_AVCDEC);
+//    debugNetPrintf(DEBUG, "[MAIN] sceSysmoduleLoadModule ha restituito: 0x%08X\n", modRes);
 
     // Usiamo direttamente la struttura specifica richiesta da VitaSDK
-    SceVideodecQueryInitInfoHwAvcdec queryInitInfo;
-    memset(&queryInitInfo, 0, sizeof(queryInitInfo));
+//    SceVideodecQueryInitInfoHwAvcdec queryInitInfo;
+//    memset(&queryInitInfo, 0, sizeof(queryInitInfo));
     
     // Configuriamo le specifiche massime che ci aspettiamo per questo progetto (480x272)
-    queryInitInfo.size = sizeof(SceVideodecQueryInitInfoHwAvcdec);
-    queryInitInfo.horizontal = 480; 
-    queryInitInfo.vertical = 272;   
-    queryInitInfo.numOfRefFrames = 3; 
-    queryInitInfo.numOfStreams = 1;
+//    queryInitInfo.size = sizeof(SceVideodecQueryInitInfoHwAvcdec);
+//    queryInitInfo.horizontal = 480;
+//    queryInitInfo.vertical = 272;
+//    queryInitInfo.numOfRefFrames = 3;
+//    queryInitInfo.numOfStreams = 1;
 
     // Ora passiamo il puntatore della struttura corretta
-    debugNetPrintf(DEBUG, "[MAIN] Sto per chiamare sceVideodecInitLibrary...\n");
-    int videoDecRes = sceVideodecInitLibrary(SCE_VIDEODEC_TYPE_HW_AVCDEC, &queryInitInfo);
-    debugNetPrintf(DEBUG, "[MAIN] sceVideodecInitLibrary ha restituito: 0x%08X\n", videoDecRes);
+//    debugNetPrintf(DEBUG, "[MAIN] Sto per chiamare sceVideodecInitLibrary...\n");
+//    int videoDecRes = sceVideodecInitLibrary(SCE_VIDEODEC_TYPE_HW_AVCDEC, &queryInitInfo);
+//    debugNetPrintf(DEBUG, "[MAIN] sceVideodecInitLibrary ha restituito: 0x%08X\n", videoDecRes);
 
 /*----------------------------------------------------------------------------------------------------------------------*/
 
@@ -262,7 +262,7 @@ void DiscordApp::Start(){
 		if(vitaState == 0){
 			switch(clicked){
 				case 0:
-					getUserTokenInput();
+					getBotTokenInput();
 					break;
 					
 				case 1:
@@ -637,7 +637,7 @@ void DiscordApp::doLogin(){
 
 
 
-void DiscordApp::getUserTokenInput(){
+void DiscordApp::getBotTokenInput(){
 	vitaGUI.loginTexts[2] = "";
 	
 	std::string newtoken = vitaIME.getUserText(tokenTitle , (char *)discord.getToken().c_str() );

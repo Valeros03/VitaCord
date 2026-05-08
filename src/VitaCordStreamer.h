@@ -2,7 +2,7 @@
 
 #include <psp2/net/net.h>
 #include <psp2/kernel/sysmem.h>
-#include <psp2/videodec.h>
+//#include <psp2/videodec.h>
 #include <vector>
 #include <pthread.h>
 #include <atomic>
@@ -41,7 +41,7 @@ private:
     std::atomic<bool> running;
     
     // Decoder Hardware
-    SceAvcdecCtrl decoderCtrl;
+    //SceAvcdecCtrl decoderCtrl;
     SceUID decoderMemUID;
     void* pDecoderMem;
 

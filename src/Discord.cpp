@@ -1623,7 +1623,7 @@ long Discord::login(std::string tok){
 	return fetchStatus;
 }
 std::string Discord::getToken(){
-	return TOKEN;
+	return token;
 }
 std::string Discord::getTicket(){
 	return ticket;

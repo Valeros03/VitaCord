@@ -504,6 +504,11 @@ void DiscordApp::CheckVoiceState(){
             nlohmann::json parsed = nlohmann::json::parse(resp.body);
             if(parsed.count("status") > 0 && parsed["status"] == "connected"){
                 vitaGUI.showCallStrip = true;
+                if(parsed.count("OnCall") > 0 && parsed["OnCall"] == true) {
+                    vitaGUI.showCallStrip = true;
+                }
+            } else if (parsed.count("OnCall") > 0 && parsed["OnCall"] == true) {
+                vitaGUI.showCallStrip = true;
             }
         }catch(...){
             logSD("Failed to parse status JSON");

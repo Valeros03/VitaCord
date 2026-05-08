@@ -670,9 +670,6 @@ void VitaGUI::Draw(){
 		// CHANNELS
 		DrawChannelsOnSidebar();
 		
-		if(showCallStrip) {
-		    DrawCallStrip();
-		}
 
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
@@ -707,6 +704,7 @@ void VitaGUI::Draw(){
         // CHANNELS
         DrawChannelsOnSidebar();
         
+		DrawMessages();
 
         // DELETEMSG
         if(clickedMessage && !isVideoCallActive) {
@@ -716,9 +714,6 @@ void VitaGUI::Draw(){
 			vita2d_font_draw_text(vita2dFont[25] , deleteMessageBox.x + 64 , messageScrollY + deleteMessageBox.y + deleteMessageBox.h - 8, RGBA8(255,0,0,255), 25 , "Delete"); 
 		}
 
-        if(showCallStrip) {
-            DrawCallStrip();
-        }
 
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
@@ -766,9 +761,6 @@ void VitaGUI::Draw(){
 		
 		DrawDirectMessageUsersOnSidebar();
 		
-		if(showCallStrip) {
-		    DrawCallStrip();
-		}
 		
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
@@ -805,9 +797,6 @@ void VitaGUI::Draw(){
 		
 		DrawDirectMessageMessages();
 		
-		if(showCallStrip) {
-		    DrawCallStrip();
-		}
 
 		// TOP sidepanel to hide guilds underneath
 		vita2d_draw_rectangle(0, 0, 230, 100, RGBA8(46, 49, 54, 255));
@@ -858,10 +847,16 @@ void VitaGUI::Draw(){
 
 	if (isVideoCallActive) {
         // Disegniamo il video in tutti gli stati TRANNE che nella chat testuale pura
-        if (state != 4) {
+        if (state != 4 && state != 7) {
             DrawVideoCall(); 
         }
     }
+
+	if (state != 0 && state != 1 && state != 9) {
+		if (showCallStrip) {
+			DrawCallStrip();
+		}
+	}
 	
 	vita2d_end_drawing();
 	vita2d_swap_buffers();
